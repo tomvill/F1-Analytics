@@ -4,10 +4,8 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 from utils.cache_utils import setup_fastf1_cache
-import datetime
 import matplotlib as mpl
-from matplotlib import cm
-import plotly.express as px
+
 
 st.set_page_config(
     page_title="F1 Analytics - Track Dynamics Map",
@@ -101,7 +99,7 @@ with sidebar:
     )
     
     metric_info = telemetry_metrics[selected_metric]
-    
+
     
 @st.cache_data(show_spinner=False)
 def load_session_data(year, round_number, session_key):
@@ -439,9 +437,9 @@ def create_track_telemetry_map(telemetry_data, metric_info, driver_name, lap_inf
     
     return fig
 
+
 with st.spinner("Loading session data... This may take a moment."):
     session = load_session_data(year, round_number, session_key)
-
 if session is None:
     st.warning("No data available for the selected session. Please try a different circuit, year, or session type.")
     st.stop()
