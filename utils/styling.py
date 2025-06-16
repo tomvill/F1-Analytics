@@ -7,7 +7,6 @@ This module provides consistent F1-themed styling for all visualizations.
 import streamlit as st
 from typing import Dict, Any
 
-# F1 Official Color Palette
 F1_COLORS = {
     'primary_red': '#FF1E00',
     'dark_bg': '#15151E', 

@@ -88,7 +88,7 @@ with st.sidebar:
         help="Select a driver to analyze their sector performance"
     )
 
-    laps_data = laps_data.pick_driver(selected_driver)
+    laps_data = laps_data.pick_drivers(selected_driver)
     st.success(f"Data filtered to show {selected_driver}'s laps")
 
 def timedelta_to_seconds(td):
@@ -103,18 +103,26 @@ def timedelta_to_seconds(td):
 
 def prepare_heatmap_data(laps_data, driver=None):
     if driver:
-        driver_laps = laps_data.pick_driver(driver)
+        driver_laps = laps_data.pick_drivers(driver)
     else:
         driver_laps = laps_data
     
-    valid_laps = driver_laps.dropna(subset=['Sector1Time', 'Sector2Time', 'Sector3Time'])
+    # Create explicit copy to avoid SettingWithCopyWarning
+    valid_laps = driver_laps.dropna(subset=['Sector1Time', 'Sector2Time', 'Sector3Time']).copy()
     
     if valid_laps.empty:
         return None, None
     
-    valid_laps['S1_seconds'] = valid_laps['Sector1Time'].apply(timedelta_to_seconds)
-    valid_laps['S2_seconds'] = valid_laps['Sector2Time'].apply(timedelta_to_seconds)
-    valid_laps['S3_seconds'] = valid_laps['Sector3Time'].apply(timedelta_to_seconds)
+    # Use explicit assignment to avoid pandas warnings
+    s1_seconds = valid_laps['Sector1Time'].apply(timedelta_to_seconds)
+    s2_seconds = valid_laps['Sector2Time'].apply(timedelta_to_seconds)
+    s3_seconds = valid_laps['Sector3Time'].apply(timedelta_to_seconds)
+    
+    valid_laps = valid_laps.assign(
+        S1_seconds=s1_seconds,
+        S2_seconds=s2_seconds,
+        S3_seconds=s3_seconds
+    )
     
     valid_laps = valid_laps.dropna(subset=['S1_seconds', 'S2_seconds', 'S3_seconds'])
     
@@ -125,9 +133,11 @@ def prepare_heatmap_data(laps_data, driver=None):
     s2_benchmark = valid_laps['S2_seconds'].min()
     s3_benchmark = valid_laps['S3_seconds'].min()
     
-    valid_laps['S1_delta'] = valid_laps['S1_seconds'] - s1_benchmark
-    valid_laps['S2_delta'] = valid_laps['S2_seconds'] - s2_benchmark
-    valid_laps['S3_delta'] = valid_laps['S3_seconds'] - s3_benchmark
+    valid_laps = valid_laps.assign(
+        S1_delta=valid_laps['S1_seconds'] - s1_benchmark,
+        S2_delta=valid_laps['S2_seconds'] - s2_benchmark,
+        S3_delta=valid_laps['S3_seconds'] - s3_benchmark
+    )
     
     heatmap_data = valid_laps[['LapNumber', 'S1_delta', 'S2_delta', 'S3_delta']].copy()
     
@@ -228,7 +238,6 @@ else:
     
     
     with st.expander("📊 Sector Statistics", expanded=False):
-        # Apply F1 styling to the statistics section
         
         def get_top_n_sectors(data, sector_col, n=3):
             top_sectors = data.sort_values(by=sector_col).head(n).copy()
