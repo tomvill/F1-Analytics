@@ -10,7 +10,8 @@ name = "f1-analytics"
 version = "0.1.0"
 description = "INF8808 Final Project"
 authors = [
-    {name = "Thomas Villeneuve",email = "thomas-2.villeneuve@polymtl.ca"}
+    {name = "Thomas Villeneuve", email = "thomas-2.villeneuve@polymtl.ca"},
+    {name = "Jonathan Roy-Ascanio", email = "Jonathanroyascanio@gmail.com"}
 ]
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
