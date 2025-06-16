@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 from datetime import timedelta
+from utils.styling import apply_f1_styling, get_f1_plotly_layout, get_f1_heatmap_colorscale, create_f1_header, create_f1_metric_card
 
 st.set_page_config(
     page_title="F1 Analytics - Sector Performance Heatmap",
@@ -18,6 +19,9 @@ between a sector time and the driver's personal best time for that sector. Dark 
 while progressively warmer colors (yellow, orange, red) indicate increasing time deltas. The color scale is optimized
 to highlight even small differences in performance. The heatmap is joined with sector statistics, including the top 3 sector times for the selected driver.
 """)
+
+# Apply F1 styling
+apply_f1_styling()
 
 ff1.Cache.enable_cache('.fast-f1-cache')
 
@@ -133,7 +137,7 @@ def prepare_heatmap_data(laps_data, driver=None):
     
     return heatmap_data, valid_laps
 
-def create_sector_heatmap(heatmap_data, driver_name, colorscale='RdYlGn_r'):
+def create_sector_heatmap(heatmap_data, driver_name, circuit, year):
     z_data = heatmap_data.values
     
     sectors = ["Sector 1", "Sector 2", "Sector 3"]
@@ -159,6 +163,9 @@ def create_sector_heatmap(heatmap_data, driver_name, colorscale='RdYlGn_r'):
         p75 = max_delta * 0.75
         effective_max = max_delta
     
+    # Use F1-themed colorscale
+    colorscale = get_f1_heatmap_colorscale()
+    
     fig = go.Figure(data=go.Heatmap(
         z=z_data,
         x=sectors,
@@ -167,25 +174,49 @@ def create_sector_heatmap(heatmap_data, driver_name, colorscale='RdYlGn_r'):
         zmin=0, 
         zmax=effective_max,  
         text=[[f"{val:.3f}s" for val in row] for row in z_data],
-        hovertemplate="Lap: %{y}<br>%{x}: %{text}<br>",
+        hovertemplate="Lap: %{y}<br>%{x}: %{text}<br><extra></extra>",
         colorbar=dict(
-            title="Time Above Personal Best (s)",
+            title=dict(
+                text="Time Above Personal Best (s)",
+                font=dict(color="#ffffff", size=14)
+            ),
             tickvals=[0, p25, p50, p75, effective_max],
-            ticktext=["Personal Best", f"+{p25:.3f}s", f"+{p50:.3f}s", f"+{p75:.3f}s", f"+{effective_max:.3f}s"]
+            ticktext=["Personal Best", f"+{p25:.3f}s", f"+{p50:.3f}s", f"+{p75:.3f}s", f"+{effective_max:.3f}s"],
+            tickfont=dict(color="#ffffff", size=12),
+            len=0.5,
+            y=0.5
         )
     ))
     
-    title_text = f"{driver_name} Sector Performance vs Personal Best"
+    title_text = f"{driver_name} - {circuit} {year} - Sector Performance vs Personal Best"
     
-    fig.update_layout(
-        title=title_text,
-        xaxis_title="Track Sector",
-        yaxis_title="Lap Number",
-        yaxis=dict(autorange="reversed"),  # To have lap 1 at the top
-        height=800,
-        width=1000,
-        margin=dict(l=50, r=50, t=80, b=50)
-    )
+    # Apply F1 layout styling
+    layout = get_f1_plotly_layout(title=title_text, height=800)
+    layout.update({
+        'xaxis': dict(
+            title=dict(
+                text="Track Sector",
+                font=dict(color="#ffffff", size=14)
+            ),
+            tickfont=dict(color="#ffffff", size=12),
+            showgrid=True,
+            gridcolor="rgba(255, 255, 255, 0.1)"
+        ),
+        'yaxis': dict(
+            title=dict(
+                text="Lap Number",
+                font=dict(color="#ffffff", size=14)
+            ),
+            tickfont=dict(color="#ffffff", size=12),
+            autorange="reversed",  # To have lap 1 at the top
+            showgrid=True,
+            gridcolor="rgba(255, 255, 255, 0.1)"
+        ),
+        'width': 1000,
+        'margin': dict(l=80, r=80, t=100, b=80)
+    })
+    
+    fig.update_layout(layout)
     
     return fig
 
@@ -196,8 +227,8 @@ if heatmap_data is None:
 else:
     
     
-    with st.expander("Sector Statistics", expanded=False):
-
+    with st.expander("📊 Sector Statistics", expanded=False):
+        # Apply F1 styling to the statistics section
         
         def get_top_n_sectors(data, sector_col, n=3):
             top_sectors = data.sort_values(by=sector_col).head(n).copy()
@@ -217,19 +248,19 @@ else:
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            st.subheader("Sector 1")
+            st.markdown('<div class="f1-stats-header">Sector 1</div>', unsafe_allow_html=True)
             for i, (_, row) in enumerate(top_s1.iterrows(), 1):
-                st.markdown(f"**#{i}:** {row['formatted_time']} (Lap {int(row['LapNumber'])})")
+                st.markdown(f'<div class="f1-stat-item">#{i}: {row["formatted_time"]} (Lap {int(row["LapNumber"])})</div>', unsafe_allow_html=True)
             
         with col2:
-            st.subheader("Sector 2")
+            st.markdown('<div class="f1-stats-header">Sector 2</div>', unsafe_allow_html=True)
             for i, (_, row) in enumerate(top_s2.iterrows(), 1):
-                st.markdown(f"**#{i}:** {row['formatted_time']} (Lap {int(row['LapNumber'])})")
+                st.markdown(f'<div class="f1-stat-item">#{i}: {row["formatted_time"]} (Lap {int(row["LapNumber"])})</div>', unsafe_allow_html=True)
             
         with col3:
-            st.subheader("Sector 3")
+            st.markdown('<div class="f1-stats-header">Sector 3</div>', unsafe_allow_html=True)
             for i, (_, row) in enumerate(top_s3.iterrows(), 1):
-                st.markdown(f"**#{i}:** {row['formatted_time']} (Lap {int(row['LapNumber'])})")
+                st.markdown(f'<div class="f1-stat-item">#{i}: {row["formatted_time"]} (Lap {int(row["LapNumber"])})</div>', unsafe_allow_html=True)
         
         theoretical_best = valid_laps['S1_seconds'].min() + valid_laps['S2_seconds'].min() + valid_laps['S3_seconds'].min()
         theoretical_best_time = timedelta(seconds=theoretical_best)
@@ -245,7 +276,7 @@ else:
             best_lap_time_str = f"{best_lap_time.seconds // 60}:{best_lap_time.seconds % 60:02d}.{best_lap_time.microseconds // 1000:03d}"
             
             st.markdown("""
-            ### Lap Analysis
+            ### 🏁 Lap Analysis
             
             This analysis compares the driver's actual best lap with a theoretical best lap time.
             The theoretical best combines the fastest sectors from any lap, showing the potential if the driver could perform perfectly across all sectors in a single lap.
@@ -254,13 +285,14 @@ else:
             col1, col2 = st.columns(2)
             
             with col1:
-                st.metric("Theoretical Best Lap", theoretical_best_str, "Perfect sectors")
+                st.markdown(create_f1_metric_card("Theoretical Best Lap", theoretical_best_str, "Perfect sectors"), unsafe_allow_html=True)
                 
             with col2:
-                st.metric("Actual Best Lap", best_lap_time_str, f"{best_lap_time_delta_str} vs theoretical")
+                st.markdown(create_f1_metric_card("Actual Best Lap", best_lap_time_str, f"{best_lap_time_delta_str} vs theoretical"), unsafe_allow_html=True)
         except:
-            st.metric("Theoretical Best Lap", theoretical_best_str, "Perfect sectors")
+            st.markdown(create_f1_metric_card("Theoretical Best Lap", theoretical_best_str, "Perfect sectors"), unsafe_allow_html=True)
             st.warning("Could not calculate actual best lap time")
-    fig = create_sector_heatmap(heatmap_data, selected_driver)
+    
+    fig = create_sector_heatmap(heatmap_data, selected_driver, circuit, year)
     st.plotly_chart(fig, use_container_width=True)
 

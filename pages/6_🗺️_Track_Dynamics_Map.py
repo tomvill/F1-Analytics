@@ -4,7 +4,9 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 from utils.cache_utils import setup_fastf1_cache
+from utils.styling import apply_f1_styling, get_f1_plotly_layout, create_f1_header, create_f1_metric_card, get_tire_color
 import matplotlib as mpl
+import traceback
 
 
 st.set_page_config(
@@ -24,6 +26,9 @@ Each segment of the track is colored according to the selected metric, allowing 
 
 **Track Features**: White circles with red borders indicate corner numbers for easy reference and analysis.
 """)
+
+# Apply F1 styling
+apply_f1_styling()
 
 setup_fastf1_cache()
 
@@ -514,60 +519,8 @@ try:
         st.plotly_chart(fig, use_container_width=True)
     
     with main_col2:
-        st.markdown("""
-        <style>
-        .f1-header {
-            background: linear-gradient(135deg, #15151E 0%, #2a2a3e 100%);
-            color: white;
-            padding: 20px;
-            border-radius: 12px;
-            border-left: 4px solid #FF1E00;
-            margin-bottom: 20px;
-            text-align: center;
-        }
-        .f1-section {
-            background: rgba(21, 21, 30, 0.6);
-            border: 1px solid rgba(255, 30, 0, 0.2);
-            border-radius: 8px;
-            padding: 16px;
-            margin: 12px 0;
-            backdrop-filter: blur(10px);
-        }
-        .f1-metric {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 6px;
-            padding: 8px 12px;
-            margin: 6px 0;
-            border-left: 2px solid #FF1E00;
-        }
-        .f1-time {
-            font-family: 'Monaco', 'Consolas', monospace;
-            font-size: 24px;
-            font-weight: bold;
-            color: #FF1E00;
-            text-align: center;
-            margin: 10px 0;
-        }
-        .f1-label {
-            color: #b0b0b0;
-            font-size: 14px;
-            margin-bottom: 4px;
-        }
-        .f1-value {
-            color: white;
-            font-weight: 600;
-            font-size: 16px;
-        }
-        </style>
-        """, unsafe_allow_html=True)
-        
         # Driver Header
-        st.markdown(f"""
-        <div class="f1-header">
-            <h2 style="margin: 0; color: white;">🏎️ {selected_driver}</h2>
-            <p style="margin: 8px 0 0 0; color: #b0b0b0;">{circuit} • {year}</p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(create_f1_header(f"🏎️ {selected_driver}", f"{circuit} • {year}"), unsafe_allow_html=True)
         
         # Lap Time - Main Feature
         lap_time = selected_lap.get('LapTime', None)
@@ -602,30 +555,14 @@ try:
         else:
             lap_time_str = "N/A"
         
-        st.markdown(f"""
-        <div class="f1-section">
-            <div class="f1-label">Lap {selected_lap['LapNumber']} Time</div>
-            <div class="f1-time">{lap_time_str}</div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(create_f1_metric_card(f"Lap {selected_lap['LapNumber']} Time", lap_time_str), unsafe_allow_html=True)
         
         with st.expander("🏎️ Tire Information", expanded=False):
             compound = selected_lap.get('Compound', None)
             tyre_life = selected_lap.get('TyreLife', None)
             
             if compound is not None and not pd.isna(compound):
-                if compound.upper() == "SOFT":
-                    tire_color = "#FF1E00"  
-                elif compound.upper() == "MEDIUM":
-                    tire_color = "#FFD700"  
-                elif compound.upper() == "HARD":
-                    tire_color = "#C0C0C0"  
-                elif compound.upper() == "INTERMEDIATE":
-                    tire_color = "#00D400" 
-                elif compound.upper() == "WET":
-                    tire_color = "#0080FF"  
-                else:
-                    tire_color = "#888888"  
+                tire_color = get_tire_color(compound)
                 
                 st.markdown(f"""
                     <div class="f1-metric">

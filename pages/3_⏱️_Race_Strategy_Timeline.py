@@ -5,9 +5,13 @@ import streamlit as st
 from collections import defaultdict
 import datetime
 from utils.cache_utils import setup_fastf1_cache
+from utils.styling import apply_f1_styling, get_f1_plotly_layout
 
 st.set_page_config(page_title="Race Strategy Timeline", layout="wide", page_icon="⏱️")
 st.title("⏱️ Race Strategy Timeline")
+
+# Apply F1 styling
+apply_f1_styling()
 
 setup_fastf1_cache()
 
@@ -151,32 +155,47 @@ def create_strategy_plot(session: fastf1.core.Session) -> tuple[go.Figure, list[
     event_name = session.event['EventName']
     race_year = session.event['EventDate'].year
     
-    fig.update_layout(
-        barmode='stack',
-        title=f"Driver Stint Analysis - {event_name} {race_year}",
-        xaxis_title="Lap Number",
-        yaxis_title="Driver",
-        yaxis=dict(
+    # Apply F1 layout styling
+    layout = get_f1_plotly_layout(title=f"Driver Stint Analysis - {event_name} {race_year}", height=800)
+    layout.update({
+        'barmode': 'stack',
+        'xaxis': dict(
+            title=dict(
+                text="Lap Number",
+                font=dict(color="#ffffff", size=14)
+            ),
+            tickfont=dict(color="#ffffff", size=12),
+            range=[0, max_race_length * 1.05],
+            fixedrange=False,
+            showgrid=True,
+            gridcolor="rgba(255, 255, 255, 0.1)"
+        ),
+        'yaxis': dict(
+            title=dict(
+                text="Driver",
+                font=dict(color="#ffffff", size=14)
+            ),
+            tickfont=dict(color="#ffffff", size=12),
             categoryarray=fixed_driver_order,
             categoryorder='array',
-            fixedrange=False
+            fixedrange=False,
+            showgrid=True,
+            gridcolor="rgba(255, 255, 255, 0.1)"
         ),
-        xaxis=dict(
-            range=[0, max_race_length * 1.05],
-            fixedrange=False
-        ),
-        height=800,
-        showlegend=True,
-        hovermode='closest',
-        legend=dict(
+        'showlegend': True,
+        'hovermode': 'closest',
+        'legend': dict(
             title="Tire Compounds",
             orientation="h",
             yanchor="bottom",
             y=1.02,
             xanchor="right",
-            x=1
+            x=1,
+            font=dict(color="#ffffff")
         )
-    )
+    })
+    
+    fig.update_layout(layout)
     
     return fig, fixed_driver_order
 
