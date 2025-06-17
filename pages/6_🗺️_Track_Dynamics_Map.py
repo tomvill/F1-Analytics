@@ -681,7 +681,7 @@ try:
         
         st.markdown(create_f1_metric_card(f"Lap {selected_lap['LapNumber']} Time", lap_time_str), unsafe_allow_html=True)
         
-        with st.expander("🏎️ Tire Information", expanded=False):
+        with st.expander("Tire Information", expanded=False):
             compound = selected_lap.get("Compound", None)
             tyre_life = selected_lap.get("TyreLife", None)
 

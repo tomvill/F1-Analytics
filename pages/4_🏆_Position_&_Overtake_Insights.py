@@ -264,7 +264,7 @@ def create_race_progression_chart(year, round_number):
             )
     
     fig.update_layout(
-        title=f"🏁 Race Position Progression - {circuit} {year}",
+        title=f"Race Position Progression - {circuit} {year}",
         title_font=dict(size=18, color="white"),
         xaxis_title="Lap Number",
         yaxis_title="Position",
@@ -286,7 +286,7 @@ def create_race_progression_chart(year, round_number):
     return fig
 
 
-with st.spinner("⚡ Processing speed data..."):
+with st.spinner("Processing speed data..."):
     df, speed_cols = process_speed_data(year, round_number)
 
 if df.empty:
