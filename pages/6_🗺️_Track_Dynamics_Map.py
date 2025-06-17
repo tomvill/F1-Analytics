@@ -20,7 +20,7 @@ st.title('🗺️ Track Dynamics Map')
 st.markdown("""
 This visualization displays the racing line of the fastest lap of a selected driver for a given race session with a track map with color gradients representing different telemetry data.
 Each segment of the track is colored according to the selected metric, allowing you to analyze:
-- **Speed**: Blue (slow) to red (fast) gradient showing speed variations around the track
+- **Speed**: Blue (slow) to Yellow (fast) gradient showing speed variations around the track
 - **Gear**: Different colors for each gear (1-8), highlighting shifting points
 - **Throttle**: Green gradient from 0% to 100% showing throttle application
 - **Brake**: Purple intensity showing braking zones
