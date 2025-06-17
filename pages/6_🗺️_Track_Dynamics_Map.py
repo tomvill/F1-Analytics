@@ -5,6 +5,7 @@ import numpy as np
 import plotly.graph_objects as go
 from utils.cache_utils import setup_fastf1_cache
 from utils.styling import apply_f1_styling, get_f1_plotly_layout, create_f1_header, create_f1_metric_card, get_tire_color
+from utils.driver_data import get_session_results, get_driver_full_name, get_driver_headshot_url, get_driver_team_info
 import matplotlib as mpl
 import traceback
 
@@ -519,8 +520,78 @@ try:
         st.plotly_chart(fig, use_container_width=True)
     
     with main_col2:
-        # Driver Header
-        st.markdown(create_f1_header(f"🏎️ {selected_driver}", f"{circuit} • {year}"), unsafe_allow_html=True)
+        # F1-styled Driver Header with photo and information
+        try:
+            driver_session_results = get_session_results(year, round_number, session_key)
+            driver_full_name = get_driver_full_name(driver_session_results, selected_driver)
+            driver_headshot = get_driver_headshot_url(driver_session_results, selected_driver)
+            driver_team_info = get_driver_team_info(driver_session_results, selected_driver)
+            driver_display_name = driver_full_name if driver_full_name else selected_driver
+        except:
+            driver_display_name = selected_driver
+            driver_headshot = None
+            driver_team_info = {}
+        
+        # Extract team information
+        team_name = driver_team_info.get('team_name', '')
+        team_color = driver_team_info.get('team_color', '#FF1E00')
+        driver_number = driver_team_info.get('driver_number', '')
+        position = driver_team_info.get('position')
+        dnf_status = driver_team_info.get('dnf', False)
+        
+        # Create F1-styled driver card
+        st.markdown(f"""
+        <div style="
+            background: linear-gradient(135deg, rgba(21, 21, 30, 0.95) 0%, rgba(42, 42, 62, 0.85) 100%);
+            border: 1px solid rgba(255, 30, 0, 0.3);
+            border-left: 4px solid {team_color};
+            border-radius: 12px;
+            padding: 16px;
+            margin: 16px 0;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        ">
+            <div style="display: flex; align-items: center; gap: 16px;">
+                <div style="
+                    width: 70px; 
+                    height: 70px; 
+                    border-radius: 50%; 
+                    overflow: hidden;
+                    border: 2px solid {team_color};
+                    background: rgba(255, 255, 255, 0.1);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                ">
+                    {"<img src='" + driver_headshot + "' style='width: 100%; height: 100%; object-fit: cover;' />" if driver_headshot else "<span style='font-size: 24px;'>🏎️</span>"}
+                </div>
+                <div style="flex: 1;">
+                    <h2 style="
+                        color: white; 
+                        margin: 0 0 4px 0; 
+                        font-size: 20px; 
+                        font-weight: bold;
+                        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+                    ">{driver_display_name}</h2>
+                    <div style="
+                        color: {team_color}; 
+                        font-size: 14px; 
+                        font-weight: 600;
+                        margin-bottom: 4px;
+                    ">● {team_name}</div>
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        {f'<span style="color: #b0b0b0; font-size: 12px;">#{driver_number}</span>' if driver_number else ''}
+                        {f'<span style="color: #FF1E00; font-size: 12px; font-weight: bold;">⚠️ DNF</span>' if dnf_status else f'<span style="color: #00D400; font-size: 12px; font-weight: bold;">🏁 P{position}</span>' if position else ''}
+                    </div>
+                    <div style="
+                        color: #888888; 
+                        font-size: 12px; 
+                        margin-top: 4px;
+                    ">{circuit} • {year}</div>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
         
         # Lap Time - Main Feature
         lap_time = selected_lap.get('LapTime', None)
