@@ -6,6 +6,11 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from utils.cache_utils import setup_fastf1_cache
+from utils.styling import apply_f1_styling, get_f1_plotly_layout, create_f1_header, create_f1_metric_card, get_tire_color
+from utils.driver_data import get_session_results, get_driver_full_name, get_driver_headshot_url, get_driver_team_info
+import matplotlib as mpl
+import traceback
+
 
 st.set_page_config(
     page_title="F1 Analytics - Track Dynamics Map", page_icon="🗺️", layout="wide"
@@ -15,13 +20,16 @@ st.title("🗺️ Track Dynamics Map")
 st.markdown("""
 This visualization displays the racing line of the fastest lap of a selected driver for a given race session with a track map with color gradients representing different telemetry data.
 Each segment of the track is colored according to the selected metric, allowing you to analyze:
-- **Speed**: Blue (slow) to red (fast) gradient showing speed variations around the track
+- **Speed**: Blue (slow) to Yellow (fast) gradient showing speed variations around the track
 - **Gear**: Different colors for each gear (1-8), highlighting shifting points
 - **Throttle**: Green gradient from 0% to 100% showing throttle application
 - **Brake**: Purple intensity showing braking zones
 
 **Track Features**: White circles with red borders indicate corner numbers for easy reference and analysis.
 """)
+
+# Apply F1 styling
+apply_f1_styling()
 
 setup_fastf1_cache()
 
@@ -557,62 +565,76 @@ try:
         st.plotly_chart(fig, use_container_width=True)
 
     with main_col2:
-        st.markdown(
-            """
-        <style>
-        .f1-header {
-            background: linear-gradient(135deg, #15151E 0%, #2a2a3e 100%);
-            color: white;
-            padding: 20px;
+        # F1-styled Driver Header with photo and information
+        try:
+            driver_session_results = get_session_results(year, round_number, session_key)
+            driver_full_name = get_driver_full_name(driver_session_results, selected_driver)
+            driver_headshot = get_driver_headshot_url(driver_session_results, selected_driver)
+            driver_team_info = get_driver_team_info(driver_session_results, selected_driver)
+            driver_display_name = driver_full_name if driver_full_name else selected_driver
+        except:
+            driver_display_name = selected_driver
+            driver_headshot = None
+            driver_team_info = {}
+        
+        # Extract team information
+        team_name = driver_team_info.get('team_name', '')
+        team_color = driver_team_info.get('team_color', '#FF1E00')
+        driver_number = driver_team_info.get('driver_number', '')
+        position = driver_team_info.get('position')
+        dnf_status = driver_team_info.get('dnf', False)
+        
+        # Create F1-styled driver card
+        st.markdown(f"""
+        <div style="
+            background: linear-gradient(135deg, rgba(21, 21, 30, 0.95) 0%, rgba(42, 42, 62, 0.85) 100%);
+            border: 1px solid rgba(255, 30, 0, 0.3);
+            border-left: 4px solid {team_color};
             border-radius: 12px;
-            border-left: 4px solid #FF1E00;
-            margin-bottom: 20px;
-            text-align: center;
-        }
-        .f1-section {
-            background: rgba(21, 21, 30, 0.6);
-            border: 1px solid rgba(255, 30, 0, 0.2);
-            border-radius: 8px;
             padding: 16px;
-            margin: 12px 0;
+            margin: 16px 0;
             backdrop-filter: blur(10px);
-        }
-        .f1-metric {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 6px;
-            padding: 8px 12px;
-            margin: 6px 0;
-            border-left: 2px solid #FF1E00;
-        }
-        .f1-time {
-            font-family: 'Monaco', 'Consolas', monospace;
-            font-size: 24px;
-            font-weight: bold;
-            color: #FF1E00;
-            text-align: center;
-            margin: 10px 0;
-        }
-        .f1-label {
-            color: #b0b0b0;
-            font-size: 14px;
-            margin-bottom: 4px;
-        }
-        .f1-value {
-            color: white;
-            font-weight: 600;
-            font-size: 16px;
-        }
-        </style>
-        """,
-            unsafe_allow_html=True,
-        )
-
-        # Driver Header
-        st.markdown(
-            f"""
-        <div class="f1-header">
-            <h2 style="margin: 0; color: white;">🏎️ {selected_driver}</h2>
-            <p style="margin: 8px 0 0 0; color: #b0b0b0;">{circuit} • {year}</p>
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        ">
+            <div style="display: flex; align-items: center; gap: 16px;">
+                <div style="
+                    width: 70px; 
+                    height: 70px; 
+                    border-radius: 50%; 
+                    overflow: hidden;
+                    border: 2px solid {team_color};
+                    background: rgba(255, 255, 255, 0.1);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                ">
+                    {"<img src='" + driver_headshot + "' style='width: 100%; height: 100%; object-fit: cover;' />" if driver_headshot else "<span style='font-size: 24px;'>🏎️</span>"}
+                </div>
+                <div style="flex: 1;">
+                    <h2 style="
+                        color: white; 
+                        margin: 0 0 4px 0; 
+                        font-size: 20px; 
+                        font-weight: bold;
+                        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+                    ">{driver_display_name}</h2>
+                    <div style="
+                        color: {team_color}; 
+                        font-size: 14px; 
+                        font-weight: 600;
+                        margin-bottom: 4px;
+                    ">● {team_name}</div>
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        {f'<span style="color: #b0b0b0; font-size: 12px;">#{driver_number}</span>' if driver_number else ''}
+                        {f'<span style="color: #FF1E00; font-size: 12px; font-weight: bold;">⚠️ DNF</span>' if dnf_status else f'<span style="color: #00D400; font-size: 12px; font-weight: bold;">🏁 P{position}</span>' if position else ''}
+                    </div>
+                    <div style="
+                        color: #888888; 
+                        font-size: 12px; 
+                        margin-top: 4px;
+                    ">{circuit} • {year}</div>
+                </div>
+            </div>
         </div>
         """,
             unsafe_allow_html=True,
@@ -656,37 +678,17 @@ try:
                 lap_time_str = str(lap_time)
         else:
             lap_time_str = "N/A"
-
-        st.markdown(
-            f"""
-        <div class="f1-section">
-            <div class="f1-label">Lap {selected_lap["LapNumber"]} Time</div>
-            <div class="f1-time">{lap_time_str}</div>
-        </div>
-        """,
-            unsafe_allow_html=True,
-        )
-
+        
+        st.markdown(create_f1_metric_card(f"Lap {selected_lap['LapNumber']} Time", lap_time_str), unsafe_allow_html=True)
+        
         with st.expander("🏎️ Tire Information", expanded=False):
             compound = selected_lap.get("Compound", None)
             tyre_life = selected_lap.get("TyreLife", None)
 
             if compound is not None and not pd.isna(compound):
-                if compound.upper() == "SOFT":
-                    tire_color = "#FF1E00"
-                elif compound.upper() == "MEDIUM":
-                    tire_color = "#FFD700"
-                elif compound.upper() == "HARD":
-                    tire_color = "#C0C0C0"
-                elif compound.upper() == "INTERMEDIATE":
-                    tire_color = "#00D400"
-                elif compound.upper() == "WET":
-                    tire_color = "#0080FF"
-                else:
-                    tire_color = "#888888"
-
-                st.markdown(
-                    f"""
+                tire_color = get_tire_color(compound)
+                
+                st.markdown(f"""
                     <div class="f1-metric">
                         <span style="color: #b0b0b0;">Compound:</span>
                         <span style="color: {tire_color}; float: right;">● {compound}</span>

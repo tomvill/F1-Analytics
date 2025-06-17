@@ -7,9 +7,13 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from utils.cache_utils import setup_fastf1_cache
+from utils.styling import apply_f1_styling, get_f1_plotly_layout
 
 st.set_page_config(page_title="Race Strategy Timeline", layout="wide", page_icon="⏱️")
 st.title("⏱️ Race Strategy Timeline")
+
+# Apply F1 styling
+apply_f1_styling()
 
 setup_fastf1_cache()
 
