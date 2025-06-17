@@ -15,9 +15,13 @@ fastf1.plotting.setup_mpl(
 
 
 st.set_page_config(
-    page_title="Lap Times & Weather Impact", layout="centered", page_icon="🌦️"
+    page_title="Lap Times & Weather Impact", layout="wide", page_icon="🌦️"
 )
 st.title("🌦️ Lap Times & Weather Impact")
+st.markdown("""
+Analyze how weather conditions affect driver performance during races.
+This visualization shows lap time evolution and weather parameters side-by-side to help identify correlations.
+""")
 
 setup_fastf1_cache()
 
@@ -251,6 +255,148 @@ def get_team_drivers(driver_info: Dict[str, Dict]) -> Dict[str, List[str]]:
     return teams
 
 
+def get_weather_data(session: fastf1.core.Session) -> Dict[str, object]:
+    """
+    Extract relevant weather data from the session.
+
+    Args:
+        session (fastf1.core.Session): Loaded F1 race session
+
+    Returns:
+        Dict[str, object]: Dictionary with processed weather data
+    """
+    try:
+        weather_data = session.weather_data
+
+        if weather_data.empty:
+            return {
+                "available": False,
+                "message": "No weather data available for this session",
+            }
+
+        stats = {
+            "available": True,
+            "air_temp": {
+                "mean": round(weather_data["AirTemp"].mean(), 1),
+                "min": round(weather_data["AirTemp"].min(), 1),
+                "max": round(weather_data["AirTemp"].max(), 1),
+            },
+            "track_temp": {
+                "mean": round(weather_data["TrackTemp"].mean(), 1),
+                "min": round(weather_data["TrackTemp"].min(), 1),
+                "max": round(weather_data["TrackTemp"].max(), 1),
+            },
+            "humidity": {
+                "mean": round(weather_data["Humidity"].mean(), 1),
+                "min": round(weather_data["Humidity"].min(), 1),
+                "max": round(weather_data["Humidity"].max(), 1),
+            },
+            "wind": {
+                "speed_mean": round(weather_data["WindSpeed"].mean(), 1),
+                "speed_max": round(weather_data["WindSpeed"].max(), 1),
+                "direction_mean": round(weather_data["WindDirection"].mean(), 1),
+            },
+            "rain": any(weather_data["Rainfall"] > 0),
+        }
+
+        stats["time_series"] = {
+            "time": weather_data.index,
+            "air_temp": weather_data["AirTemp"],
+            "track_temp": weather_data["TrackTemp"],
+            "humidity": weather_data["Humidity"],
+            "rainfall": weather_data["Rainfall"],
+        }
+
+        return stats
+    except Exception as e:
+        return {
+            "available": False,
+            "message": f"Error processing weather data: {str(e)}",
+        }
+
+
+def display_weather_panel(weather_data: Dict[str, object]) -> None:
+    """
+    Display weather information in a panel.
+
+    Args:
+        weather_data (Dict[str, object]): Dictionary with processed weather data
+    """
+    st.subheader("Weather Conditions")
+
+    if not weather_data["available"]:
+        st.info(weather_data["message"])
+        return
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.metric(
+            "Air Temperature",
+            f"{weather_data['air_temp']['mean']}°C",
+            f"{weather_data['air_temp']['max'] - weather_data['air_temp']['min']:.1f}°C variation",
+        )
+
+        st.metric(
+            "Humidity",
+            f"{weather_data['humidity']['mean']}%",
+            f"{weather_data['humidity']['max'] - weather_data['humidity']['min']:.1f}% variation",
+        )
+
+    with col2:
+        st.metric(
+            "Track Temperature",
+            f"{weather_data['track_temp']['mean']}°C",
+            f"{weather_data['track_temp']['max'] - weather_data['track_temp']['min']:.1f}°C variation",
+        )
+
+        st.metric(
+            "Wind Speed",
+            f"{weather_data['wind']['speed_mean']} km/h",
+            f"Max: {weather_data['wind']['speed_max']} km/h",
+        )
+
+    # Display rain status with icon
+    if weather_data["rain"]:
+        st.warning("⛈️ Rain detected during this session", icon="⚠️")
+    else:
+        st.success("☀️ No rainfall during this session", icon="✅")
+
+    # Display temperature range
+    st.subheader("Temperature Details")
+    st.markdown(f"""
+    | Metric | Min | Mean | Max | Variation |
+    |--------|-----|------|-----|-----------|
+    | **Air Temp** | {weather_data["air_temp"]["min"]}°C | {weather_data["air_temp"]["mean"]}°C | {weather_data["air_temp"]["max"]}°C | {weather_data["air_temp"]["max"] - weather_data["air_temp"]["min"]:.1f}°C |
+    | **Track Temp** | {weather_data["track_temp"]["min"]}°C | {weather_data["track_temp"]["mean"]}°C | {weather_data["track_temp"]["max"]}°C | {weather_data["track_temp"]["max"] - weather_data["track_temp"]["min"]:.1f}°C |
+    | **Humidity** | {weather_data["humidity"]["min"]}% | {weather_data["humidity"]["mean"]}% | {weather_data["humidity"]["max"]}% | {weather_data["humidity"]["max"] - weather_data["humidity"]["min"]:.1f}% |
+    """)
+
+    # Add wind direction info
+    direction = weather_data["wind"]["direction_mean"]
+    cardinal_direction = "N/A"
+
+    # Convert degrees to cardinal directions
+    if 337.5 <= direction <= 360 or 0 <= direction < 22.5:
+        cardinal_direction = "North"
+    elif 22.5 <= direction < 67.5:
+        cardinal_direction = "Northeast"
+    elif 67.5 <= direction < 112.5:
+        cardinal_direction = "East"
+    elif 112.5 <= direction < 157.5:
+        cardinal_direction = "Southeast"
+    elif 157.5 <= direction < 202.5:
+        cardinal_direction = "South"
+    elif 202.5 <= direction < 247.5:
+        cardinal_direction = "Southwest"
+    elif 247.5 <= direction < 292.5:
+        cardinal_direction = "West"
+    elif 292.5 <= direction < 337.5:
+        cardinal_direction = "Northwest"
+
+    st.caption(f"**Wind Direction**: {cardinal_direction} ({direction:.1f}°)")
+
+
 st.sidebar.header("Race Selection")
 
 selected_year = st.sidebar.selectbox(
@@ -329,8 +475,20 @@ with st.spinner("Loading race data..."):
 
         st.subheader(f"Lap Times - {selected_year} {selected_event}")
 
-        fig = plot_lap_times(session, selected_drivers)
-        st.plotly_chart(fig, use_container_width=True)
+        # Get weather data for the panel
+        weather_data = get_weather_data(session)
+
+        # Create a two-column layout
+        lap_times_col, weather_col = st.columns([0.65, 0.35])
+
+        with lap_times_col:
+            # Display lap time plot (without weather overlay)
+            fig = plot_lap_times(session, selected_drivers)
+            st.plotly_chart(fig, use_container_width=True)
+
+        with weather_col:
+            # Weather data display
+            display_weather_panel(weather_data)
 
     except Exception as e:
         st.error(f"Error loading session data: {str(e)}")
