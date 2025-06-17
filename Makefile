@@ -1,19 +1,20 @@
-PYTHON_VERSION = 3.12
-VENV = .venv
-
 .PHONY: setup-env start clean
 
 setup-env:
-	@echo "Setting up Python virtual environment..."
-	pyenv install -s $(PYTHON_VERSION)
-	pyenv local $(PYTHON_VERSION)
-	python -m venv $(VENV)
-	$(VENV)/bin/pip install --upgrade pip
-	$(VENV)/bin/pip install -r requirements.txt
-	@echo "Virtual environment is set up. To activate it, run: source $(VENV)/bin/activate"
+	@echo "Checking for Python 3.12 with pyenv..."
+	pyenv install -s 3.12
+	pyenv local 3.12
+	@echo "Checking for Poetry..."
+	@if ! command -v poetry >/dev/null 2>&1; then \
+		echo "Poetry not found. Installing..."; \
+		curl -sSL https://install.python-poetry.org | python3 -; \
+	fi
+	@echo "Installing dependencies with Poetry..."
+	poetry install
+	@echo "Environment is set up. To activate it, run: source .venv/bin/activate"
 
 start:
-	$(VENV)/bin/streamlit run Home.py
+	poetry run streamlit run Home.py
 
 clean:
-	rm -rf $(VENV) .python-version
+	rm -rf .venv .python-version

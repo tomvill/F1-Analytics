@@ -1,18 +1,20 @@
-import streamlit as st
+from datetime import timedelta
+
 import fastf1 as ff1
-import pandas as pd
 import numpy as np
+import pandas as pd
 import plotly.graph_objects as go
+import streamlit as st
 from datetime import timedelta
 from utils.styling import apply_f1_styling, get_f1_plotly_layout, get_f1_heatmap_colorscale, create_f1_header, create_f1_metric_card
 
 st.set_page_config(
     page_title="F1 Analytics - Sector Performance Heatmap",
     page_icon="📊",
-    layout="wide"
+    layout="wide",
 )
 
-st.title('📊 Sector Performance Heatmap')
+st.title("📊 Sector Performance Heatmap")
 st.markdown("""
 This visualization shows sector performance data across laps. Each cell represents the time difference (delta) 
 between a sector time and the driver's personal best time for that sector. Dark green indicates personal best times, 
@@ -23,73 +25,86 @@ to highlight even small differences in performance. The heatmap is joined with s
 # Apply F1 styling
 apply_f1_styling()
 
+# Apply F1 styling
+apply_f1_styling()
+
 ff1.Cache.enable_cache('.fast-f1-cache')
 
 with st.sidebar:
-    
-    current_year = 2024  
-    year = st.selectbox("Select Year", range(current_year, 2017, -1), 
-                        help="FastF1 provides reliable data from 2018 onwards")
-    
+    current_year = 2024
+    year = st.selectbox(
+        "Select Year",
+        range(current_year, 2017, -1),
+        help="FastF1 provides reliable data from 2018 onwards",
+    )
+
     try:
         events = ff1.get_event_schedule(year)
-        
-        race_events = events[events['EventFormat'] != 'testing']
-        
+
+        race_events = events[events["EventFormat"] != "testing"]
+
         if race_events.empty:
-            st.error(f"No race events found for {year}. Please select a different year.")
+            st.error(
+                f"No race events found for {year}. Please select a different year."
+            )
             st.stop()
-            
-        event_names = race_events['EventName'].tolist()
+
+        event_names = race_events["EventName"].tolist()
         circuit = st.selectbox("Select Grand Prix", event_names)
-        
-        selected_event = race_events[race_events['EventName'] == circuit].iloc[0]
-        round_number = selected_event['RoundNumber']
-        
+
+        selected_event = race_events[race_events["EventName"] == circuit].iloc[0]
+        round_number = selected_event["RoundNumber"]
+
         session_type = "Race"
-        session_key = "R" 
-        
-    
+        session_key = "R"
+
     except Exception as e:
         st.error(f"Error loading event schedule: {e}")
         st.stop()
+
 
 @st.cache_data(show_spinner=False)
 def load_session_data(year, round_number, session_key):
     try:
         session = ff1.get_session(year, round_number, session_key)
         session.load()
-        
+
         if session.laps.empty:
-            st.warning(f"No lap data available for this race session. The data might not be available.")
+            st.warning(
+                "No lap data available for this race session. The data might not be available."
+            )
             return None
-            
+
         return session
     except Exception as e:
         st.error(f"Error loading session data: {e}")
         return None
 
+
 with st.spinner("Loading race session data... This may take a moment."):
     session = load_session_data(year, round_number, session_key)
 
 if session is None:
-    st.warning("No data available for the selected session. Please try a different circuit or year.")
+    st.warning(
+        "No data available for the selected session. Please try a different circuit or year."
+    )
     st.stop()
 
 laps_data = session.laps
 
 
-drivers = laps_data['Driver'].unique().tolist()
+drivers = laps_data["Driver"].unique().tolist()
 
 with st.sidebar:
     selected_driver = st.selectbox(
-        "Select Driver", 
+        "Select Driver",
         drivers,
-        help="Select a driver to analyze their sector performance"
+        help="Select a driver to analyze their sector performance",
     )
 
     laps_data = laps_data.pick_drivers(selected_driver)
     st.success(f"Data filtered to show {selected_driver}'s laps")
+
 
 def timedelta_to_seconds(td):
     if pd.isna(td):
@@ -98,18 +113,22 @@ def timedelta_to_seconds(td):
         return td.total_seconds()
     try:
         return float(td)
-    except:
+    except ValueError:
+        st.error(f"Invalid time format: {td}. Expected timedelta or float.")
         return None
+
 
 def prepare_heatmap_data(laps_data, driver=None):
     if driver:
         driver_laps = laps_data.pick_drivers(driver)
     else:
         driver_laps = laps_data
-    
+
     # Create explicit copy to avoid SettingWithCopyWarning
-    valid_laps = driver_laps.dropna(subset=['Sector1Time', 'Sector2Time', 'Sector3Time']).copy()
-    
+    valid_laps = driver_laps.dropna(
+        subset=["Sector1Time", "Sector2Time", "Sector3Time"]
+    ).copy()
+
     if valid_laps.empty:
         return None, None
     
@@ -149,23 +168,22 @@ def prepare_heatmap_data(laps_data, driver=None):
 
 def create_sector_heatmap(heatmap_data, driver_name, circuit, year):
     z_data = heatmap_data.values
-    
+
     sectors = ["Sector 1", "Sector 2", "Sector 3"]
-    
+
     lap_numbers = heatmap_data.index.tolist()
-    
-    
+
     all_deltas = heatmap_data.values.flatten()
     all_deltas = all_deltas[~np.isnan(all_deltas)]  # Remove NaN values
-    
+
     max_delta = np.max(all_deltas)
-    
+
     non_zero_deltas = all_deltas[all_deltas > 0]
     if len(non_zero_deltas) > 0:
         p25 = np.percentile(non_zero_deltas, 25)
         p50 = np.percentile(non_zero_deltas, 50)
         p75 = np.percentile(non_zero_deltas, 75)
-        
+
         effective_max = np.percentile(non_zero_deltas, 95)
     else:
         p25 = max_delta * 0.25
@@ -230,6 +248,7 @@ def create_sector_heatmap(heatmap_data, driver_name, circuit, year):
     
     return fig
 
+
 heatmap_data, valid_laps = prepare_heatmap_data(laps_data, selected_driver)
 
 if heatmap_data is None:
@@ -241,21 +260,22 @@ else:
         
         def get_top_n_sectors(data, sector_col, n=3):
             top_sectors = data.sort_values(by=sector_col).head(n).copy()
-            top_sectors['formatted_time'] = top_sectors[sector_col].apply(
-                lambda x: str(timedelta(seconds=x)).split('.')[0] + '.' + 
-                          str(timedelta(seconds=x)).split('.')[1][:3]
+            top_sectors["formatted_time"] = top_sectors[sector_col].apply(
+                lambda x: str(timedelta(seconds=x)).split(".")[0]
+                + "."
+                + str(timedelta(seconds=x)).split(".")[1][:3]
             )
-            top_sectors['formatted_time'] = top_sectors['formatted_time'].apply(
-                lambda x: x[2:] if x.startswith('0:') else x
+            top_sectors["formatted_time"] = top_sectors["formatted_time"].apply(
+                lambda x: x[2:] if x.startswith("0:") else x
             )
             return top_sectors
-        
-        top_s1 = get_top_n_sectors(valid_laps, 'S1_seconds')
-        top_s2 = get_top_n_sectors(valid_laps, 'S2_seconds')
-        top_s3 = get_top_n_sectors(valid_laps, 'S3_seconds')
-        
+
+        top_s1 = get_top_n_sectors(valid_laps, "S1_seconds")
+        top_s2 = get_top_n_sectors(valid_laps, "S2_seconds")
+        top_s3 = get_top_n_sectors(valid_laps, "S3_seconds")
+
         col1, col2, col3 = st.columns(3)
-        
+
         with col1:
             st.markdown('<div class="f1-stats-header">Sector 1</div>', unsafe_allow_html=True)
             for i, (_, row) in enumerate(top_s1.iterrows(), 1):
@@ -274,16 +294,18 @@ else:
         theoretical_best = valid_laps['S1_seconds'].min() + valid_laps['S2_seconds'].min() + valid_laps['S3_seconds'].min()
         theoretical_best_time = timedelta(seconds=theoretical_best)
         theoretical_best_str = f"{theoretical_best_time.seconds // 60}:{theoretical_best_time.seconds % 60:02d}.{theoretical_best_time.microseconds // 1000:03d}"
-        
+
         try:
-            best_lap = valid_laps.loc[valid_laps['LapTime'].apply(timedelta_to_seconds).idxmin()]
-            best_lap_time = timedelta_to_seconds(best_lap['LapTime'])
+            best_lap = valid_laps.loc[
+                valid_laps["LapTime"].apply(timedelta_to_seconds).idxmin()
+            ]
+            best_lap_time = timedelta_to_seconds(best_lap["LapTime"])
             best_lap_time_delta = timedelta(seconds=best_lap_time - theoretical_best)
             best_lap_time_delta_str = f"+{best_lap_time_delta.seconds}.{best_lap_time_delta.microseconds // 1000:03d}"
-            
+
             best_lap_time = timedelta(seconds=best_lap_time)
             best_lap_time_str = f"{best_lap_time.seconds // 60}:{best_lap_time.seconds % 60:02d}.{best_lap_time.microseconds // 1000:03d}"
-            
+
             st.markdown("""
             ### 🏁 Lap Analysis
             
@@ -292,7 +314,7 @@ else:
             The difference indicates how much improvement might be possible under ideal conditions.
             """)
             col1, col2 = st.columns(2)
-            
+
             with col1:
                 st.markdown(create_f1_metric_card("Theoretical Best Lap", theoretical_best_str, "Perfect sectors"), unsafe_allow_html=True)
                 
@@ -304,4 +326,3 @@ else:
     
     fig = create_sector_heatmap(heatmap_data, selected_driver, circuit, year)
     st.plotly_chart(fig, use_container_width=True)
-
