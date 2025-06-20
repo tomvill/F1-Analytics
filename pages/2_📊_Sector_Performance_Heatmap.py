@@ -14,7 +14,7 @@ st.set_page_config(
     layout="wide",
 )
 
-st.title("📊 Sector Performance Heatmap")
+st.title("Sector Performance Heatmap")
 st.markdown("""
 This visualization shows sector performance data across laps. Each cell represents the time difference (delta) 
 between a sector time and the driver's personal best time for that sector. Dark green indicates personal best times, 
@@ -256,7 +256,7 @@ if heatmap_data is None:
 else:
     
     
-    with st.expander("📊 Sector Statistics", expanded=False):
+    with st.expander("Sector Statistics", expanded=False):
         
         def get_top_n_sectors(data, sector_col, n=3):
             top_sectors = data.sort_values(by=sector_col).head(n).copy()

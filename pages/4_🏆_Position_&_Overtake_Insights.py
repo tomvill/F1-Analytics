@@ -7,6 +7,7 @@ from plotly.subplots import make_subplots
 import plotly.express as px
 
 from utils.cache_utils import setup_fastf1_cache
+from utils.styling import get_position_overtake_css, create_f1_stat_card
 
 st.set_page_config(
     page_title="F1 Analytics - Overtake Insights", 
@@ -14,48 +15,7 @@ st.set_page_config(
     layout="wide"
 )
 
-st.markdown("""
-<style>
-.f1-title {
-    background: linear-gradient(135deg, #15151E 0%, #2a2a3e 100%);
-    color: white;
-    padding: 30px;
-    border-radius: 12px;
-    border-left: 4px solid #FF1E00;
-    margin-bottom: 30px;
-    text-align: center;
-}
-.f1-section {
-    background: rgba(21, 21, 30, 0.6);
-    border: 1px solid rgba(255, 30, 0, 0.2);
-    border-radius: 8px;
-    padding: 16px;
-    margin: 12px 0;
-    backdrop-filter: blur(10px);
-}
-.f1-metric {
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 6px;
-    padding: 12px;
-    margin: 8px 0;
-    border-left: 2px solid #FF1E00;
-    color: white;
-}
-.f1-stat-value {
-    font-family: 'Monaco', 'Consolas', monospace;
-    font-size: 24px;
-    font-weight: bold;
-    color: #FF1E00;
-    text-align: center;
-}
-.f1-stat-label {
-    color: #b0b0b0;
-    font-size: 14px;
-    text-align: center;
-    margin-bottom: 8px;
-}
-</style>
-""", unsafe_allow_html=True)
+st.markdown(get_position_overtake_css(), unsafe_allow_html=True)
 
 
 st.markdown("""
@@ -313,36 +273,24 @@ col1, col2, col3 = st.columns(3)
 with col1:
     total_overtakes = df['Overtakes'].sum()
     avg_overtakes = df['Overtakes'].mean()
-    st.markdown(f"""
-    <div class="f1-metric">
-        <div class="f1-stat-label">Total Overtakes</div>
-        <div class="f1-stat-value">{total_overtakes}</div>
-        <div style="color: #b0b0b0; font-size: 12px; text-align: center;">avg {avg_overtakes:.1f} per driver</div>
-    </div>
-    """, unsafe_allow_html=True)
+    description = f"avg {avg_overtakes:.1f} per driver"
+    stat_card_html = create_f1_stat_card("Total Overtakes", str(total_overtakes), description)
+    st.markdown(stat_card_html, unsafe_allow_html=True)
 
 with col2:
     positions_gained_total = df['PositionsGained'].sum()
     max_positions_gained = df['PositionsGained'].max()
     best_climber = df.loc[df['PositionsGained'].idxmax(), 'Driver'] if max_positions_gained > 0 else "None"
-    st.markdown(f"""
-    <div class="f1-metric">
-        <div class="f1-stat-label">Total Positions Gained</div>
-        <div class="f1-stat-value">{positions_gained_total}</div>
-        <div style="color: #b0b0b0; font-size: 12px; text-align: center;">max {max_positions_gained} by {best_climber}</div>
-    </div>
-    """, unsafe_allow_html=True)
+    description = f"max {max_positions_gained} by {best_climber}"
+    stat_card_html = create_f1_stat_card("Total Positions Gained", str(positions_gained_total), description)
+    st.markdown(stat_card_html, unsafe_allow_html=True)
 
 with col3:
     active_drivers = len(df)
     drivers_with_overtakes = (df['Overtakes'] > 0).sum()
-    st.markdown(f"""
-    <div class="f1-metric">
-        <div class="f1-stat-label">Active Drivers</div>
-        <div class="f1-stat-value">{active_drivers}</div>
-        <div style="color: #b0b0b0; font-size: 12px; text-align: center;">{drivers_with_overtakes} made overtakes</div>
-    </div>
-    """, unsafe_allow_html=True)
+    description = f"{drivers_with_overtakes} made overtakes"
+    stat_card_html = create_f1_stat_card("Active Drivers", str(active_drivers), description)
+    st.markdown(stat_card_html, unsafe_allow_html=True)
 
 st.markdown('</div>', unsafe_allow_html=True)
 
