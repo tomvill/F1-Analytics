@@ -1,4 +1,3 @@
-import datetime
 from typing import Dict, List, Tuple
 
 import fastf1
@@ -34,8 +33,7 @@ def get_available_years() -> List[int]:
     Returns:
         List[int]: List of years with available F1 data
     """
-    current_year = datetime.datetime.now().year
-    return list(range(2018, current_year + 1))
+    return list(range(2024, 2017, -1))
 
 
 @st.cache_data(ttl=86400)
@@ -78,7 +76,9 @@ def load_race_session(year: int, event: str, _schedule) -> fastf1.core.Session:
 
 
 def plot_lap_times(
-    session: fastf1.core.Session, selected_drivers: List[str]
+    session: fastf1.core.Session,
+    selected_drivers: List[str],
+    weather_data: Dict[str, object] = None,
 ) -> go.Figure:
     """
     Plot lap times vs lap number for selected drivers in the race.
@@ -86,6 +86,7 @@ def plot_lap_times(
     Args:
         session (fastf1.core.Session): Loaded F1 race session
         selected_drivers (List[str]): List of selected driver abbreviations
+        weather_data (Dict[str, object], optional): Weather data dictionary
 
     Returns:
         go.Figure: Plotly figure with lap times
@@ -122,7 +123,6 @@ def plot_lap_times(
             driver_abbr = driver_info["Abbreviation"]
             team = driver_info["TeamName"]
 
-            # Get driver laps
             driver_laps = laps_data.pick_drivers(driver_abbr)
 
             if driver_laps.empty:
@@ -176,6 +176,63 @@ def plot_lap_times(
             except Exception:
                 missing_data_drivers.append(str(driver))
             continue
+
+    if (
+        weather_data
+        and weather_data.get("available")
+        and weather_data.get("time_series")
+    ):
+        try:
+            weather_ts = weather_data["time_series"]
+            if len(weather_ts.get("rainfall", [])) > 0:
+                max_laps = (
+                    session.laps["LapNumber"].max() if not session.laps.empty else 0
+                )
+                rainfall_data = weather_ts["rainfall"]
+
+                if max(rainfall_data) > 0:
+                    num_laps = int(max_laps)
+                    rain_periods = []
+
+                    segments = len(rainfall_data)
+                    rain_start = None
+
+                    for i, rain_value in enumerate(rainfall_data):
+                        lap_position = (
+                            1 + (i / segments) * num_laps if segments > 0 else 1
+                        )
+
+                        if rain_value > 0 and rain_start is None:
+                            rain_start = lap_position
+                        elif rain_value == 0 and rain_start is not None:
+                            rain_periods.append((rain_start, lap_position))
+                            rain_start = None
+
+                    if rain_start is not None:
+                        rain_periods.append((rain_start, num_laps))
+
+                    for i, (start_lap, end_lap) in enumerate(rain_periods):
+                        fig.add_vrect(
+                            x0=start_lap,
+                            x1=end_lap,
+                            fillcolor="rgba(0, 130, 255, 0.15)",
+                            layer="below",
+                            line_width=0,
+                            opacity=0.5,
+                        )
+
+                    fig.add_trace(
+                        go.Scatter(
+                            x=[None],
+                            y=[None],
+                            mode="lines",
+                            line=dict(color="rgba(0, 130, 255, 0.15)", width=10),
+                            name="Rainfall Periods",
+                            showlegend=True,
+                        )
+                    )
+        except Exception as e:
+            st.warning(f"Could not overlay rainfall data: {str(e)}")
 
     fig.update_layout(
         title="Lap Times Throughout Race",
@@ -400,7 +457,7 @@ def display_weather_panel(weather_data: Dict[str, object]) -> None:
 st.sidebar.header("Race Selection")
 
 selected_year = st.sidebar.selectbox(
-    "Select Year", options=get_available_years(), index=len(get_available_years()) - 1
+    "Select Year", options=get_available_years(), index=0
 )
 
 events, schedule = get_race_events(selected_year)
@@ -482,8 +539,7 @@ with st.spinner("Loading race data..."):
         lap_times_col, weather_col = st.columns([0.65, 0.35])
 
         with lap_times_col:
-            # Display lap time plot (without weather overlay)
-            fig = plot_lap_times(session, selected_drivers)
+            fig = plot_lap_times(session, selected_drivers, weather_data)
             st.plotly_chart(fig, use_container_width=True)
 
         with weather_col:
