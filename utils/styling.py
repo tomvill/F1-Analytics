@@ -1,7 +1,6 @@
 """
-F1 Analytics - Centralized Styling Utilities
-
-This module provides consistent F1-themed styling for all visualizations.
+Centralized Styling 
+This module provides the F1-themed styling used in some of our visualizations.
 """
 
 import streamlit as st
@@ -22,12 +21,6 @@ F1_COLORS = {
 }
 
 def get_f1_css() -> str:
-    """
-    Returns the complete F1-themed CSS styling.
-    
-    Returns:
-        str: CSS styling string for F1 theme
-    """
     return f"""
     <style>
     .f1-header {{
@@ -117,12 +110,6 @@ def get_f1_css() -> str:
     """
 
 def get_position_overtake_css() -> str:
-    """
-    Returns the CSS styles specifically for Position & Overtake Insights page.
-    
-    Returns:
-        str: CSS styling string for Position & Overtake page
-    """
     return """
     <style>
     .f1-title {
@@ -167,20 +154,9 @@ def get_position_overtake_css() -> str:
     """
 
 def apply_f1_styling():
-    """Apply F1 theme styling to the current Streamlit page."""
     st.markdown(get_f1_css(), unsafe_allow_html=True)
 
 def get_f1_plotly_layout(title: str = "", height: int = 800) -> Dict[str, Any]:
-    """
-    Get standardized F1-themed Plotly layout configuration.
-    
-    Args:
-        title (str): Chart title
-        height (int): Chart height in pixels
-        
-    Returns:
-        Dict[str, Any]: Plotly layout configuration
-    """
     return {
         'title': {
             'text': title,
@@ -214,12 +190,6 @@ def get_f1_plotly_layout(title: str = "", height: int = 800) -> Dict[str, Any]:
     }
 
 def get_f1_heatmap_colorscale() -> list:
-    """
-    Get F1-themed colorscale for heatmaps.
-    
-    Returns:
-        list: Plotly colorscale configuration
-    """
     return [
         [0.0, f"rgba(0, 100, 0, 0.8)"],      # Dark green for best times
         [0.2, f"rgba(50, 150, 0, 0.7)"],     # Green
@@ -230,16 +200,6 @@ def get_f1_heatmap_colorscale() -> list:
     ]
 
 def create_f1_header(title: str, subtitle: str = "") -> str:
-    """
-    Create a standardized F1-themed header.
-    
-    Args:
-        title (str): Main title text
-        subtitle (str): Optional subtitle text
-        
-    Returns:
-        str: HTML string for the header
-    """
     subtitle_html = f"<p style='margin: 8px 0 0 0; color: {F1_COLORS['text_secondary']};'>{subtitle}</p>" if subtitle else ""
     
     return f"""
@@ -250,17 +210,6 @@ def create_f1_header(title: str, subtitle: str = "") -> str:
     """
 
 def create_f1_metric_card(label: str, value: str, description: str = "") -> str:
-    """
-    Create a standardized F1-themed metric card.
-    
-    Args:
-        label (str): Metric label
-        value (str): Metric value
-        description (str): Optional description
-        
-    Returns:
-        str: HTML string for the metric card
-    """
     desc_html = f"<p style='margin: 4px 0 0 0; color: {F1_COLORS['text_labels']}; font-size: 12px;'>{description}</p>" if description else ""
     
     return f"""
@@ -272,15 +221,6 @@ def create_f1_metric_card(label: str, value: str, description: str = "") -> str:
     """
 
 def get_tire_color(compound: str) -> str:
-    """
-    Get the F1 official tire compound color.
-    
-    Args:
-        compound (str): Tire compound name
-        
-    Returns:
-        str: Hex color code
-    """
     compound_upper = compound.upper()
     tire_colors = {
         'SOFT': F1_COLORS['tire_soft'],
@@ -294,23 +234,6 @@ def get_tire_color(compound: str) -> str:
 def create_f1_driver_card(driver_display_name: str, team_name: str, team_color: str, 
                          driver_number: str, position: str, dnf_status: bool, 
                          driver_headshot: str, circuit: str, year: int) -> str:
-    """
-    Create a F1-styled driver information card with photo and team details.
-    
-    Args:
-        driver_display_name (str): Full driver name
-        team_name (str): Team name
-        team_color (str): Team color hex code
-        driver_number (str): Driver number
-        position (str): Race position
-        dnf_status (bool): Whether driver DNF'd
-        driver_headshot (str): URL to driver headshot image
-        circuit (str): Circuit name
-        year (int): Race year
-        
-    Returns:
-        str: HTML string for the driver card
-    """
     headshot_html = f"<img src='{driver_headshot}' style='width: 100%; height: 100%; object-fit: cover;' />" if driver_headshot else "<span style='font-size: 24px;'>🏎️</span>"
     driver_number_html = f'<span style="color: #b0b0b0; font-size: 12px;">#{driver_number}</span>' if driver_number else ''
     
@@ -375,16 +298,6 @@ def create_f1_driver_card(driver_display_name: str, team_name: str, team_color: 
     """
 
 def create_f1_tire_info_metric(compound: str, tire_color: str) -> str:
-    """
-    Create a F1-themed tire information metric.
-    
-    Args:
-        compound (str): Tire compound name
-        tire_color (str): Tire color hex code
-        
-    Returns:
-        str: HTML string for tire info metric
-    """
     return f"""
     <div class="f1-metric">
         <span style="color: #b0b0b0;">Compound:</span>
@@ -410,12 +323,6 @@ def create_f1_tire_life_metric(tyre_life: int) -> str:
     """
 
 def create_f1_tire_na_metrics() -> str:
-    """
-    Create F1-themed tire metrics for when data is not available.
-    
-    Returns:
-        str: HTML string for N/A tire metrics
-    """
     return """
     <div class="f1-metric">
         <span style="color: #b0b0b0;">Compound:</span>
@@ -428,12 +335,6 @@ def create_f1_tire_na_metrics() -> str:
     """
 
 def create_f1_tire_life_na_metric() -> str:
-    """
-    Create F1-themed tire life metric for when data is not available.
-    
-    Returns:
-        str: HTML string for N/A tire life metric
-    """
     return """
     <div class="f1-metric">
         <span style="color: #b0b0b0;">Tyre Life:</span>
@@ -442,17 +343,6 @@ def create_f1_tire_life_na_metric() -> str:
     """
 
 def create_f1_speed_metrics(max_speed: float, avg_speed: float, min_speed: float) -> str:
-    """
-    Create F1-themed speed analysis metrics.
-    
-    Args:
-        max_speed (float): Maximum speed
-        avg_speed (float): Average speed
-        min_speed (float): Minimum speed
-        
-    Returns:
-        str: HTML string for speed metrics
-    """
     return f"""
     <div class="f1-metric">
         <span style="color: #b0b0b0;">Max</span>
@@ -469,16 +359,6 @@ def create_f1_speed_metrics(max_speed: float, avg_speed: float, min_speed: float
     """
 
 def create_f1_performance_metric(label: str, value: str) -> str:
-    """
-    Create a single F1-themed performance metric.
-    
-    Args:
-        label (str): Metric label
-        value (str): Metric value
-        
-    Returns:
-        str: HTML string for performance metric
-    """
     return f"""
     <div class="f1-metric">
         <span style="color: #b0b0b0;">{label}</span>
@@ -487,17 +367,6 @@ def create_f1_performance_metric(label: str, value: str) -> str:
     """
 
 def create_f1_stat_card(label: str, value: str, description: str = "") -> str:
-    """
-    Create a F1-themed statistic card for race insights.
-    
-    Args:
-        label (str): Statistic label
-        value (str): Statistic value
-        description (str): Optional description text
-        
-    Returns:
-        str: HTML string for stat card
-    """
     desc_html = f'<div style="color: #b0b0b0; font-size: 12px; text-align: center;">{description}</div>' if description else ''
     
     return f"""
