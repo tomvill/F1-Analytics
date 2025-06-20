@@ -6,7 +6,11 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from utils.cache_utils import setup_fastf1_cache
-from utils.styling import apply_f1_styling, get_f1_plotly_layout, create_f1_header, create_f1_metric_card, get_tire_color
+from utils.styling import (
+    apply_f1_styling, get_f1_plotly_layout, create_f1_header, create_f1_metric_card, get_tire_color,
+    create_f1_driver_card, create_f1_tire_info_metric, create_f1_tire_life_metric, 
+    create_f1_tire_na_metrics, create_f1_tire_life_na_metric, create_f1_speed_metrics, create_f1_performance_metric
+)
 from utils.driver_data import get_session_results, get_driver_full_name, get_driver_headshot_url, get_driver_team_info
 import matplotlib as mpl
 import traceback
@@ -585,60 +589,11 @@ try:
         dnf_status = driver_team_info.get('dnf', False)
         
         # Create F1-styled driver card
-        st.markdown(f"""
-        <div style="
-            background: linear-gradient(135deg, rgba(21, 21, 30, 0.95) 0%, rgba(42, 42, 62, 0.85) 100%);
-            border: 1px solid rgba(255, 30, 0, 0.3);
-            border-left: 4px solid {team_color};
-            border-radius: 12px;
-            padding: 16px;
-            margin: 16px 0;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-        ">
-            <div style="display: flex; align-items: center; gap: 16px;">
-                <div style="
-                    width: 70px; 
-                    height: 70px; 
-                    border-radius: 50%; 
-                    overflow: hidden;
-                    border: 2px solid {team_color};
-                    background: rgba(255, 255, 255, 0.1);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                ">
-                    {"<img src='" + driver_headshot + "' style='width: 100%; height: 100%; object-fit: cover;' />" if driver_headshot else "<span style='font-size: 24px;'>🏎️</span>"}
-                </div>
-                <div style="flex: 1;">
-                    <h2 style="
-                        color: white; 
-                        margin: 0 0 4px 0; 
-                        font-size: 20px; 
-                        font-weight: bold;
-                        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
-                    ">{driver_display_name}</h2>
-                    <div style="
-                        color: {team_color}; 
-                        font-size: 14px; 
-                        font-weight: 600;
-                        margin-bottom: 4px;
-                    ">● {team_name}</div>
-                    <div style="display: flex; gap: 12px; align-items: center;">
-                        {f'<span style="color: #b0b0b0; font-size: 12px;">#{driver_number}</span>' if driver_number else ''}
-                        {f'<span style="color: #FF1E00; font-size: 12px; font-weight: bold;">⚠️ DNF</span>' if dnf_status else f'<span style="color: #00D400; font-size: 12px; font-weight: bold;">🏁 P{position}</span>' if position else ''}
-                    </div>
-                    <div style="
-                        color: #888888; 
-                        font-size: 12px; 
-                        margin-top: 4px;
-                    ">{circuit} • {year}</div>
-                </div>
-            </div>
-        </div>
-        """,
-            unsafe_allow_html=True,
+        driver_card_html = create_f1_driver_card(
+            driver_display_name, team_name, team_color, driver_number, 
+            position, dnf_status, driver_headshot, circuit, year
         )
+        st.markdown(driver_card_html, unsafe_allow_html=True)
 
         # Lap Time - Main Feature
         lap_time = selected_lap.get("LapTime", None)
@@ -688,72 +643,24 @@ try:
             if compound is not None and not pd.isna(compound):
                 tire_color = get_tire_color(compound)
                 
-                st.markdown(f"""
-                    <div class="f1-metric">
-                        <span style="color: #b0b0b0;">Compound:</span>
-                        <span style="color: {tire_color}; float: right;">● {compound}</span>
-                    </div>
-                """,
-                    unsafe_allow_html=True,
-                )
+                tire_info_html = create_f1_tire_info_metric(compound, tire_color)
+                st.markdown(tire_info_html, unsafe_allow_html=True)
 
                 if tyre_life is not None and not pd.isna(tyre_life):
-                    st.markdown(
-                        f"""
-                    <div class="f1-metric">
-                        <span style="color: #b0b0b0;">Tire Life:</span>
-                        <span style="color: white; float: right;">{tyre_life} laps</span>
-                    </div>
-                    """,
-                        unsafe_allow_html=True,
-                    )
+                    tire_life_html = create_f1_tire_life_metric(tyre_life)
+                    st.markdown(tire_life_html, unsafe_allow_html=True)
                 else:
-                    st.markdown(
-                        """
-                    <div class="f1-metric">
-                        <span style="color: #b0b0b0;">Tyre Life:</span>
-                        <span style="color: #888888; float: right;">N/A</span>
-                    </div>
-                    """,
-                        unsafe_allow_html=True,
-                    )
+                    st.markdown(create_f1_tire_life_na_metric(), unsafe_allow_html=True)
             else:
-                st.markdown(
-                    """
-                    <div class="f1-metric">
-                        <span style="color: #b0b0b0;">Compound:</span>
-                        <span style="color: #888888; float: right;">N/A</span>
-                    </div>
-                    <div class="f1-metric">
-                        <span style="color: #b0b0b0;">Tyre Life:</span>
-                        <span style="color: #888888; float: right;">N/A</span>
-                    </div>
-                """,
-                    unsafe_allow_html=True,
-                )
+                st.markdown(create_f1_tire_na_metrics(), unsafe_allow_html=True)
 
         with st.expander("Speed Analysis", expanded=False):
             max_speed = telemetry["Speed"].max()
             avg_speed = telemetry["Speed"].mean()
             min_speed = telemetry["Speed"].min()
 
-            st.markdown(
-                f"""
-                <div class="f1-metric">
-                    <span style="color: #b0b0b0;">Max</span>
-                    <span style="color: white; float: right;">{max_speed:.1f} km/h</span>
-                </div>
-                <div class="f1-metric">
-                    <span style="color: #b0b0b0;">Avg</span>
-                    <span style="color: white; float: right;">{avg_speed:.1f} km/h</span>
-                </div>
-                <div class="f1-metric">
-                    <span style="color: #b0b0b0;">Min</span>
-                    <span style="color: white; float: right;">{min_speed:.1f} km/h</span>
-                </div>
-            """,
-                unsafe_allow_html=True,
-            )
+            speed_metrics_html = create_f1_speed_metrics(max_speed, avg_speed, min_speed)
+            st.markdown(speed_metrics_html, unsafe_allow_html=True)
 
         with st.expander("Performance Metrics", expanded=False):
             performance_data = []
@@ -775,15 +682,8 @@ try:
 
             if performance_data:
                 for label, value in performance_data:
-                    st.markdown(
-                        f"""
-                    <div class="f1-metric">
-                        <span style="color: #b0b0b0;">{label}</span>
-                        <span style="color: white; float: right;">{value}</span>
-                    </div>
-                    """,
-                        unsafe_allow_html=True,
-                    )
+                    performance_metric_html = create_f1_performance_metric(label, value)
+                    st.markdown(performance_metric_html, unsafe_allow_html=True)
             else:
                 st.markdown("**Performance data not available**")
 
