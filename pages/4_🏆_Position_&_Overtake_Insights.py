@@ -31,7 +31,6 @@ with sidebar:
     year = st.selectbox(
         "Select Year",
         range(current_year, 2017, -1),
-        help="FastF1 data available from 2018 onwards",
     )
 
     try:
