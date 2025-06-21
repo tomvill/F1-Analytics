@@ -1,4 +1,3 @@
-import datetime
 from collections import defaultdict
 
 import fastf1
@@ -7,12 +6,11 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from utils.cache_utils import setup_fastf1_cache
-from utils.styling import apply_f1_styling, get_f1_plotly_layout
+from utils.styling import apply_f1_styling
 
 st.set_page_config(page_title="Race Strategy Timeline", layout="wide", page_icon="⏱️")
 st.title("⏱️ Race Strategy Timeline")
 
-# Apply F1 styling
 apply_f1_styling()
 
 setup_fastf1_cache()
@@ -26,8 +24,7 @@ def get_available_years() -> list[int]:
     Returns:
         List[int]: List of years with available F1 data
     """
-    current_year = datetime.datetime.now().year
-    return list(range(2018, current_year + 1))
+    return list(range(2024, 2017, -1))
 
 
 @st.cache_data(ttl=86400)
@@ -83,6 +80,13 @@ def create_strategy_plot(session: fastf1.core.Session) -> tuple[go.Figure, list[
     laps = session.laps
 
     drivers = session.drivers
+    driver_full_names = {}
+    for driver in drivers:
+        driver_info = session.get_driver(driver)
+        abbr = driver_info["Abbreviation"]
+        full_name = f"{driver_info['FirstName']} {driver_info['LastName']}"
+        driver_full_names[abbr] = full_name
+
     drivers = [session.get_driver(driver)["Abbreviation"] for driver in drivers]
 
     stints = laps[["Driver", "Stint", "Compound", "LapNumber"]]
@@ -130,7 +134,7 @@ def create_strategy_plot(session: fastf1.core.Session) -> tuple[go.Figure, list[
                 legendgroup=compound,
                 showlegend=False,
                 hoverinfo="text",
-                hovertext=f"Driver: {driver}<br>Compound: {compound}<br>Laps: {previous_stint_end + 1}-{previous_stint_end + row['StintLength']}",
+                hovertext=f"Driver: {driver_full_names[driver]}<br>Compound: {compound}<br>Laps: {previous_stint_end + 1}-{previous_stint_end + row['StintLength']}",
             )
 
             fig.add_trace(trace)
@@ -186,13 +190,10 @@ def create_strategy_plot(session: fastf1.core.Session) -> tuple[go.Figure, list[
 
 
 years = get_available_years()
-default_year_index = min(
-    years.index(2024) if 2024 in years else len(years) - 1, len(years) - 1
-)
 
 with st.sidebar:
     st.header("Filters")
-    selected_year = st.selectbox("Select Year", years, index=default_year_index)
+    selected_year = st.selectbox("Select Year", years, index=0)
 
     try:
         event_names, schedule = get_race_events(selected_year)
@@ -201,7 +202,6 @@ with st.sidebar:
         st.error(f"Error loading race events: {e}")
         st.stop()
 
-st.write(f"**{selected_event} {selected_year} - Race Strategy**")
 st.write(
     "This visualization shows the tire stint strategies used by each driver throughout the race."
 )
