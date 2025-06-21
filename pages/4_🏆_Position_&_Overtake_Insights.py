@@ -185,7 +185,7 @@ def create_race_progression_chart(year, round_number):
     session.load()
     laps = session.laps
     
-    final_results = session.results.head(10)
+    final_results = session.results
     top_drivers = final_results['Abbreviation'].tolist()
     
     fig = go.Figure()
