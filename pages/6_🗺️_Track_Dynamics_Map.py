@@ -32,7 +32,6 @@ Each segment of the track is colored according to the selected metric, allowing 
 **Track Features**: White circles with red borders indicate corner numbers for easy reference and analysis.
 """)
 
-# Apply F1 styling
 apply_f1_styling()
 
 setup_fastf1_cache()
@@ -401,7 +400,6 @@ def create_track_telemetry_map(
             align="left",
         )
 
-    # Add corner markers if circuit info is available
     if (
         circuit_info is not None
         and hasattr(circuit_info, "corners")
@@ -475,6 +473,29 @@ def create_track_telemetry_map(
     )
 
     return fig
+
+
+def format_lap_time(lap_time):
+    lap_time_str = str(lap_time)
+    
+    if "days" in lap_time_str:
+        lap_time_str = lap_time_str.split("days ")[-1]
+    
+    colon_count = lap_time_str.count(":")
+    if colon_count == 1:  # MM:SS format
+        lap_time_str = f"00:{lap_time_str}"
+    elif colon_count == 0:  # SS format
+        lap_time_str = f"00:00:{lap_time_str}"
+    
+    if "." not in lap_time_str:
+        lap_time_str = f"{lap_time_str}.000"
+    else:
+        time_parts = lap_time_str.split(".")
+        if len(time_parts) > 1:
+            milliseconds = time_parts[1][:3].ljust(3, "0")
+            lap_time_str = f"{time_parts[0]}.{milliseconds}"
+    
+    return lap_time_str
 
 
 with st.spinner("Loading session data... This may take a moment."):
@@ -569,7 +590,6 @@ try:
         st.plotly_chart(fig, use_container_width=True)
 
     with main_col2:
-        # F1-styled Driver Header with photo and information
         try:
             driver_session_results = get_session_results(year, round_number, session_key)
             driver_full_name = get_driver_full_name(driver_session_results, selected_driver)
@@ -581,21 +601,18 @@ try:
             driver_headshot = None
             driver_team_info = {}
         
-        # Extract team information
         team_name = driver_team_info.get('team_name', '')
         team_color = driver_team_info.get('team_color', '#FF1E00')
         driver_number = driver_team_info.get('driver_number', '')
         position = driver_team_info.get('position')
         dnf_status = driver_team_info.get('dnf', False)
         
-        # Create F1-styled driver card
         driver_card_html = create_f1_driver_card(
             driver_display_name, team_name, team_color, driver_number, 
             position, dnf_status, driver_headshot, circuit, year
         )
         st.markdown(driver_card_html, unsafe_allow_html=True)
 
-        # Lap Time - Main Feature
         lap_time = selected_lap.get("LapTime", None)
         if (
             lap_time is not None
@@ -603,32 +620,7 @@ try:
             and not isinstance(lap_time, pd.Series)
         ):
             try:
-                # Convert lap time to full format: 00:01:32.608
-                lap_time_str = str(lap_time)
-
-                # Handle different formats that FastF1 might return
-                if "days" in lap_time_str:
-                    # Remove days part if present
-                    lap_time_str = lap_time_str.split("days ")[-1]
-
-                # Ensure we have the full HH:MM:SS.mmm format
-                if lap_time_str.count(":") == 1:  # Format: MM:SS.mmm
-                    lap_time_str = f"00:{lap_time_str}"
-                elif lap_time_str.count(":") == 0:  # Format: SS.mmm
-                    lap_time_str = f"00:00:{lap_time_str}"
-
-                # Ensure milliseconds are present and properly formatted
-                if "." not in lap_time_str:
-                    lap_time_str = f"{lap_time_str}.000"
-                else:
-                    # Ensure we have exactly 3 decimal places
-                    time_parts = lap_time_str.split(".")
-                    if len(time_parts) > 1:
-                        milliseconds = time_parts[1][:3].ljust(
-                            3, "0"
-                        )  # Take first 3 digits, pad if needed
-                        lap_time_str = f"{time_parts[0]}.{milliseconds}"
-
+                lap_time_str = format_lap_time(lap_time)
             except (IndexError, AttributeError, ValueError):
                 lap_time_str = str(lap_time)
         else:

@@ -19,6 +19,14 @@ F1_COLORS = {
     'tire_intermediate': '#00D400',
     'tire_wet': '#0080FF'
 }
+team_colors = {
+        'RED': '#FF1E00', 'FER': '#FF1E00',  # Ferrari
+        'MCL': '#FF8000', 'MAC': '#FF8000',  # McLaren
+        'MER': '#00D2BE', 'HAM': '#00D2BE', 'RUS': '#00D2BE',  # Mercedes
+        'RBR': '#0600EF', 'VER': '#0600EF', 'PER': '#0600EF',  # Red Bull
+        'AST': '#006F62', 'ALO': '#006F62', 'STR': '#006F62',  # Aston Martin
+        'ALP': '#0090FF', 'GAS': '#0090FF', 'OCO': '#0090FF',  # Alpine
+}
 
 def get_f1_css() -> str:
     return f"""

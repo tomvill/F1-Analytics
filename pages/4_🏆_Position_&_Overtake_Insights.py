@@ -1,13 +1,11 @@
 import fastf1 as ff1
-import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
-from plotly.subplots import make_subplots
 import plotly.express as px
 
 from utils.cache_utils import setup_fastf1_cache
-from utils.styling import get_position_overtake_css, create_f1_stat_card
+from utils.styling import get_position_overtake_css, create_f1_stat_card, team_colors
 
 st.set_page_config(
     page_title="F1 Analytics - Overtake Insights", 
@@ -19,7 +17,7 @@ st.markdown(get_position_overtake_css(), unsafe_allow_html=True)
 
 
 st.markdown("""
-# 🏆 Position & Overtake Insights
+# Position & Overtake Insights
 
 Analyze overtaking patterns and race position dynamics 
 
@@ -38,8 +36,7 @@ with sidebar:
     current_year = 2024
     year = st.selectbox(
         "Select Year",
-        range(current_year, 2017, -1),
-        help="FastF1 data available from 2018 onwards",
+        range(current_year, 2019, -1),
     )
 
     try:
@@ -56,7 +53,6 @@ with sidebar:
 
 @st.cache_data(show_spinner=False)
 def process_speed_data(year, round_number):
-    """Process speed trap and lap data efficiently - No heavy telemetry processing"""
     session = ff1.get_session(year, round_number, 'R')
     session.load()
     laps = session.laps
@@ -126,7 +122,6 @@ def process_speed_data(year, round_number):
     return pd.DataFrame(driver_data), available_speed_cols
 
 def create_overtakes_position_chart(df, circuit, year):
-    """Create focused overtakes vs position changes visualization"""
     
     if df.empty:
         return go.Figure().add_annotation(
@@ -186,7 +181,6 @@ def create_overtakes_position_chart(df, circuit, year):
 
 @st.cache_data(show_spinner=False)
 def create_race_progression_chart(year, round_number):
-    """Create race progression visualization"""
     session = ff1.get_session(year, round_number, 'R')
     session.load()
     laps = session.laps
@@ -195,15 +189,6 @@ def create_race_progression_chart(year, round_number):
     top_drivers = final_results['Abbreviation'].tolist()
     
     fig = go.Figure()
-    
-    team_colors = {
-        'RED': '#FF1E00', 'FER': '#FF1E00',  # Ferrari
-        'MCL': '#FF8000', 'MAC': '#FF8000',  # McLaren
-        'MER': '#00D2BE', 'HAM': '#00D2BE', 'RUS': '#00D2BE',  # Mercedes
-        'RBR': '#0600EF', 'VER': '#0600EF', 'PER': '#0600EF',  # Red Bull
-        'AST': '#006F62', 'ALO': '#006F62', 'STR': '#006F62',  # Aston Martin
-        'ALP': '#0090FF', 'GAS': '#0090FF', 'OCO': '#0090FF',  # Alpine
-    }
     
     for i, driver in enumerate(top_drivers):
         driver_data = laps[laps['Driver'] == driver][['LapNumber', 'Position']].dropna()
@@ -228,7 +213,7 @@ def create_race_progression_chart(year, round_number):
         title_font=dict(size=18, color="white"),
         xaxis_title="Lap Number",
         yaxis_title="Position",
-        yaxis=dict(autorange="reversed", dtick=1),  # Position 1 at top
+        yaxis=dict(autorange="reversed", dtick=1), 
         height=500,
         plot_bgcolor="rgba(0,0,0,0)",
         paper_bgcolor="rgba(0,0,0,0)",

@@ -22,11 +22,8 @@ while progressively warmer colors (yellow, orange, red) indicate increasing time
 to highlight even small differences in performance. The heatmap is joined with sector statistics, including the top 3 sector times for the selected driver.
 """)
 
-# Apply F1 styling
 apply_f1_styling()
 
-# Apply F1 styling
-apply_f1_styling()
 
 ff1.Cache.enable_cache('.fast-f1-cache')
 
@@ -124,7 +121,6 @@ def prepare_heatmap_data(laps_data, driver=None):
     else:
         driver_laps = laps_data
 
-    # Create explicit copy to avoid SettingWithCopyWarning
     valid_laps = driver_laps.dropna(
         subset=["Sector1Time", "Sector2Time", "Sector3Time"]
     ).copy()
@@ -132,7 +128,6 @@ def prepare_heatmap_data(laps_data, driver=None):
     if valid_laps.empty:
         return None, None
     
-    # Use explicit assignment to avoid pandas warnings
     s1_seconds = valid_laps['Sector1Time'].apply(timedelta_to_seconds)
     s2_seconds = valid_laps['Sector2Time'].apply(timedelta_to_seconds)
     s3_seconds = valid_laps['Sector3Time'].apply(timedelta_to_seconds)
@@ -174,7 +169,7 @@ def create_sector_heatmap(heatmap_data, driver_name, circuit, year):
     lap_numbers = heatmap_data.index.tolist()
 
     all_deltas = heatmap_data.values.flatten()
-    all_deltas = all_deltas[~np.isnan(all_deltas)]  # Remove NaN values
+    all_deltas = all_deltas[~np.isnan(all_deltas)]  
 
     max_delta = np.max(all_deltas)
 
@@ -191,7 +186,6 @@ def create_sector_heatmap(heatmap_data, driver_name, circuit, year):
         p75 = max_delta * 0.75
         effective_max = max_delta
     
-    # Use F1-themed colorscale
     colorscale = get_f1_heatmap_colorscale()
     
     fig = go.Figure(data=go.Heatmap(
@@ -218,7 +212,6 @@ def create_sector_heatmap(heatmap_data, driver_name, circuit, year):
     
     title_text = f"{driver_name} - {circuit} {year} - Sector Performance vs Personal Best"
     
-    # Apply F1 layout styling
     layout = get_f1_plotly_layout(title=title_text, height=800)
     layout.update({
         'xaxis': dict(
