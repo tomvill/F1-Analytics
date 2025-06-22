@@ -126,6 +126,28 @@ def load_session_data(year, round_number, session_key):
         return None
 
 
+def format_lap_time(lap_time) -> str:
+    lap_time_str = str(lap_time)
+
+    if "days" in lap_time_str:
+        lap_time_str = lap_time_str.split("days ")[-1]
+
+    if lap_time_str.count(":") == 1:
+        lap_time_str = f"00:{lap_time_str}"
+    elif lap_time_str.count(":") == 0:
+        lap_time_str = f"00:00:{lap_time_str}"
+
+    if "." not in lap_time_str:
+        lap_time_str = f"{lap_time_str}.000"
+    else:
+        time_parts = lap_time_str.split(".")
+        if len(time_parts) > 1:
+            milliseconds = time_parts[1][:3].ljust(3, "0")
+            lap_time_str = f"{time_parts[0]}.{milliseconds}"
+
+    return lap_time_str
+
+
 def create_track_telemetry_map(
     telemetry_data, metric_info, driver_name, lap_info, circuit_info=None
 ):
@@ -620,23 +642,7 @@ try:
             and not isinstance(lap_time, pd.Series)
         ):
             try:
-                lap_time_str = str(lap_time)
-
-                if "days" in lap_time_str:
-                    lap_time_str = lap_time_str.split("days ")[-1]
-
-                if lap_time_str.count(":") == 1:
-                    lap_time_str = f"00:{lap_time_str}"
-                elif lap_time_str.count(":") == 0:
-                    lap_time_str = f"00:00:{lap_time_str}"
-
-                if "." not in lap_time_str:
-                    lap_time_str = f"{lap_time_str}.000"
-                else:
-                    time_parts = lap_time_str.split(".")
-                    if len(time_parts) > 1:
-                        milliseconds = time_parts[1][:3].ljust(3, "0")
-                        lap_time_str = f"{time_parts[0]}.{milliseconds}"
+                lap_time_str = format_lap_time(lap_time)
 
             except (IndexError, AttributeError, ValueError):
                 lap_time_str = str(lap_time)
