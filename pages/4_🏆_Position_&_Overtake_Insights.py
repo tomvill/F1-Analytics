@@ -283,7 +283,7 @@ def create_race_progression_chart(year, round_number):
                     name=driver,
                     line=dict(width=3, color=color),
                     marker=dict(size=5, color=color),
-                    hovertemplate=f"<b>{driver_fullname.get(driver, driver)}</b><br>Lap: %{{x}}<br>Position: %{{y}}<extra></extra>",
+                    hovertemplate=f"<b>{driver_fullname.get(driver, driver)}</b><br>Position: %{{y}}<extra></extra>",
                 )
             )
 
@@ -313,17 +313,7 @@ def create_race_progression_chart(year, round_number):
         plot_bgcolor="rgba(0,0,0,0)",
         paper_bgcolor="rgba(0,0,0,0)",
         font=dict(color="white"),
-        legend=dict(
-            bgcolor="rgba(0,0,0,0.7)",
-            bordercolor="rgba(255,255,255,0.2)",
-            borderwidth=1,
-        ),
         hovermode="x unified",
-        hoverlabel=dict(
-            namelength=-1,
-            bgcolor="rgba(255,255,255,0.9)",
-            font_size=10,
-        ),
     )
 
     for i, trace in enumerate(fig.data):
