@@ -1,4 +1,3 @@
-import datetime
 from typing import List, Tuple
 
 import fastf1
@@ -7,6 +6,12 @@ import plotly.graph_objs as go
 import streamlit as st
 
 from utils.cache_utils import setup_fastf1_cache
+from utils.session_data import (
+    get_available_years,
+    get_race_events,
+    load_session,
+    get_drivers_mapping,
+)
 
 fastf1.plotting.setup_mpl(
     mpl_timedelta_support=False, misc_mpl_mods=False, color_scheme="fastf1"
@@ -18,57 +23,6 @@ st.set_page_config(
 st.title("📈 Driver Telemetry Comparison")
 
 setup_fastf1_cache()
-
-
-@st.cache_data(ttl=86400)
-def get_available_years() -> List[int]:
-    """
-    Get a list of available years for F1 data, from 2018 to current year.
-
-    Returns:
-        List[int]: List of years with available F1 data
-    """
-    current_year = datetime.datetime.now().year
-    return list(range(2018, current_year + 1))
-
-
-@st.cache_data(ttl=86400)
-def get_race_events(year: int) -> Tuple[List[str], fastf1.events.EventSchedule]:
-    """
-    Get the race events for a specific year, excluding pre-season testing.
-
-    Args:
-        year (int): The year to get events for
-
-    Returns:
-        Tuple[List[str], fastf1.events.EventSchedule]: A tuple containing list of event names
-                                                      and the full schedule DataFrame
-    """
-    schedule = fastf1.get_event_schedule(year)
-    race_schedule = schedule[schedule["EventFormat"] != "testing"]
-    event_names = race_schedule["EventName"].tolist()
-    return event_names, race_schedule
-
-
-@st.cache_data(ttl=86400, show_spinner=False)
-def load_race_session(year: int, event: str, _schedule) -> fastf1.core.Session:
-    """
-    Load the FastF1 race session for the selected year and event.
-
-    Args:
-        year (int): Selected year
-        event (str): Selected event name
-        _schedule: F1 event schedule DataFrame (prefixed with _ to prevent hashing)
-
-    Returns:
-        fastf1.core.Session: Loaded F1 race session
-    """
-    event_row = _schedule[_schedule["EventName"] == event].iloc[0]
-    gp_round = int(event_row["RoundNumber"])
-
-    session = fastf1.get_session(year, gp_round, "R")
-    session.load()
-    return session
 
 
 def plot_multi_driver_telemetry_comparison(
@@ -178,32 +132,19 @@ with st.sidebar:
         selected_event = st.selectbox("Select Grand Prix", event_names)
 
         with st.spinner("Loading race session..."):
-            session = load_race_session(selected_year, selected_event, schedule)
+            session = load_session(
+                year=selected_year, event=selected_event, _schedule=schedule
+            )
 
-        driver_name_to_abbr = {}
-        driver_abbrs = []
-        driver_full_names = []
+            if session is None:
+                st.warning(
+                    "No data available for this session. Please try another race."
+                )
+                st.stop()
 
-        for driver in session.drivers:
-            try:
-                driver_info = session.get_driver(driver)
-                driver_abbr = driver_info["Abbreviation"]
-                driver_full_name = driver_info["FullName"]
-
-                driver_abbrs.append(driver_abbr)
-                driver_full_names.append(driver_full_name)
-                driver_name_to_abbr[driver_full_name] = driver_abbr
-            except Exception:
-                continue
-
-        driver_data = sorted(zip(driver_full_names, driver_abbrs), key=lambda x: x[0])
-        driver_full_names, driver_abbrs = zip(*driver_data) if driver_data else ([], [])
-        driver_full_names = list(driver_full_names)
-        driver_abbrs = list(driver_abbrs)
-
-        abbr_to_driver_name = {
-            abbr: full_name for full_name, abbr in driver_name_to_abbr.items()
-        }
+        driver_abbrs, driver_full_names, driver_name_to_abbr, abbr_to_driver_name = (
+            get_drivers_mapping(session)
+        )
 
         default_drivers = driver_abbrs[: min(2, len(driver_abbrs))]
 

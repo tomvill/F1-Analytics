@@ -1,9 +1,7 @@
-import os
-
-import fastf1
 import streamlit as st
 
 from utils.cache_utils import setup_fastf1_cache
+from utils.cache_utils import clear_fastf1_cache, get_cache_info
 
 setup_fastf1_cache()
 
@@ -36,35 +34,21 @@ with st.expander("Technical Details", expanded=False):
     When you first view a race, data is downloaded and then cached for future use.
     """)
 
-    cache_path = os.path.abspath(".fast-f1-cache")
-    cache_size = 0
-    num_files = 0
-
     if st.button("Clear FastF1 Cache", key="clear_cache_btn"):
-        try:
-            fastf1.Cache.clear_cache(cache_path)
+        success, message = clear_fastf1_cache()
+        if success:
             st.success("Cache cleared!")
-            cache_size = 0
-            num_files = 0
-        except FileNotFoundError:
-            st.info("Cache directory does not exist.")
-        except Exception as e:
-            st.error(f"Error clearing cache: {e}")
-
-    try:
-        for path, dirs, files in os.walk(cache_path):
-            num_files += len(files)
-            for f in files:
-                cache_size += os.path.getsize(os.path.join(path, f))
-
-        if cache_size > 0:
-            st.info(
-                f"Cache status: Active with {num_files} files ({cache_size / 1048576:.1f} MB)"
-            )
         else:
-            st.info("Cache status: Directory exists but is empty")
-    except Exception:
-        st.info("Cache status: Not yet created")
+            st.info(message)
+
+    cache_size, num_files = get_cache_info()
+
+    if cache_size > 0:
+        st.info(
+            f"Cache status: Active with {num_files} files ({cache_size / 1048576:.1f} MB)"
+        )
+    else:
+        st.info("Cache status: Empty or not yet created")
 
 st.markdown("""
     ### Authors

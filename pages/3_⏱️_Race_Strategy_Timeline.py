@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from utils.cache_utils import setup_fastf1_cache
+from utils.session_data import get_available_years, get_race_events, load_session
 from utils.styling import apply_f1_styling
 
 st.set_page_config(page_title="Race Strategy Timeline", layout="wide", page_icon="⏱️")
@@ -14,56 +15,6 @@ st.title("⏱️ Race Strategy Timeline")
 apply_f1_styling()
 
 setup_fastf1_cache()
-
-
-@st.cache_data(ttl=86400)
-def get_available_years() -> list[int]:
-    """
-    Get a list of available years for F1 data, from 2018 to current year.
-
-    Returns:
-        List[int]: List of years with available F1 data
-    """
-    return list(range(2024, 2017, -1))
-
-
-@st.cache_data(ttl=86400)
-def get_race_events(year: int) -> tuple[list[str], fastf1.events.EventSchedule]:
-    """
-    Get the race events for a specific year, excluding pre-season testing.
-
-    Args:
-        year (int): The year to get events for
-
-    Returns:
-        Tuple[List[str], fastf1.events.EventSchedule]: A tuple containing list of event names
-                                                      and the full schedule DataFrame
-    """
-    schedule = fastf1.get_event_schedule(year)
-    race_schedule = schedule[schedule["EventFormat"] != "testing"]
-    event_names = race_schedule["EventName"].tolist()
-    return event_names, race_schedule
-
-
-@st.cache_data(ttl=86400, show_spinner=False)
-def load_race_session(year: int, event: str, _schedule) -> fastf1.core.Session:
-    """
-    Load the FastF1 race session for the selected year and event.
-
-    Args:
-        year (int): Selected year
-        event (str): Selected event name
-        _schedule: F1 event schedule DataFrame (prefixed with _ to prevent hashing)
-
-    Returns:
-        fastf1.core.Session: Loaded F1 race session
-    """
-    event_row = _schedule[_schedule["EventName"] == event].iloc[0]
-    gp_round = int(event_row["RoundNumber"])
-
-    session = fastf1.get_session(year, gp_round, "R")
-    session.load()
-    return session
 
 
 def create_strategy_plot(session: fastf1.core.Session) -> tuple[go.Figure, list[str]]:
@@ -208,7 +159,13 @@ st.write(
 
 try:
     with st.spinner("Loading race data..."):
-        session = load_race_session(selected_year, selected_event, schedule)
+        session = load_session(
+            year=selected_year, event=selected_event, _schedule=schedule
+        )
+
+        if session is None:
+            st.warning("No data available for this session. Please try another race.")
+            st.stop()
 
     with st.spinner("Creating strategy plot..."):
         fig, driver_order = create_strategy_plot(session)
@@ -265,7 +222,6 @@ try:
         if missing_drivers:
             st.info(f"No strategy data available for: {', '.join(missing_drivers)}")
 
-except Exception as e:
-    st.warning(f"Could not load race data or create strategy plot: {e}")
+except Exception:
+    st.warning("Could not load race data or create strategy plot")
     st.info(f"Try selecting a different Grand Prix for {selected_year}.")
-    st.error(f"Error details: {e}")

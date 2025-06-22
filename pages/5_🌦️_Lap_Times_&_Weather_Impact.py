@@ -168,7 +168,7 @@ def plot_lap_times(
                     mode="lines",
                     name=driver_abbr,
                     line=dict(color=color, dash=line_dash),
-                    hovertemplate=f"{driver_full_name}<br>Time: %{{y:.3f}}s<br>Team: {team}<extra></extra>",
+                    hovertemplate=f"{driver_full_name}: %{{y:.3f}}s<extra></extra>",
                 )
             )
 

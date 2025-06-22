@@ -6,6 +6,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
+from utils.cache_utils import setup_fastf1_cache
 from utils.driver_data import get_driver_full_name
 from utils.styling import (
     apply_f1_styling,
@@ -13,6 +14,7 @@ from utils.styling import (
     get_f1_heatmap_colorscale,
     get_f1_plotly_layout,
 )
+from utils.session_data import load_session
 
 st.set_page_config(
     page_title="F1 Analytics - Sector Performance Heatmap",
@@ -27,7 +29,7 @@ Analyze sector times lap-by-lap. Each cell shows how much slower a sector was co
 
 apply_f1_styling()
 
-ff1.Cache.enable_cache(".fast-f1-cache")
+setup_fastf1_cache()
 
 with st.sidebar:
     current_year = 2024
@@ -55,31 +57,15 @@ with st.sidebar:
 
         session_key = "R"
 
-    except Exception as e:
-        st.error(f"Error loading event schedule: {e}")
+    except Exception:
+        st.error("Error loading event schedule")
         st.stop()
 
 
-@st.cache_data(show_spinner=False)
-def load_session_data(year, round_number, session_key):
-    try:
-        session = ff1.get_session(year, round_number, session_key)
-        session.load()
-
-        if session.laps.empty:
-            st.warning(
-                "No lap data available for this race session. The data might not be available."
-            )
-            return None
-
-        return session
-    except Exception as e:
-        st.error(f"Error loading session data: {e}")
-        return None
-
-
 with st.spinner("Loading race session data... This may take a moment."):
-    session = load_session_data(year, round_number, session_key)
+    session = load_session(
+        year=year, round_number=round_number, session_type=session_key
+    )
 
 if session is None:
     st.warning(
@@ -388,6 +374,5 @@ else:
             )
             st.warning("Could not calculate actual best lap time")
 
-    # Use the selected driver code for data filtering but pass the full name for display
     fig = create_sector_heatmap(heatmap_data, selected_driver_name, circuit, year)
     st.plotly_chart(fig, use_container_width=True)

@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from utils.cache_utils import setup_fastf1_cache
+from utils.session_data import get_available_years, load_session
 from utils.styling import create_f1_stat_card, get_position_overtake_css
 
 np.random.seed(42)
@@ -27,11 +28,8 @@ sidebar = st.sidebar
 with sidebar:
     st.header("Race Selection")
 
-    current_year = 2024
-    year = st.selectbox(
-        "Select Year",
-        range(current_year, 2017, -1),
-    )
+    years = get_available_years()
+    year = st.selectbox("Select Year", options=years, index=0)
 
     try:
         events = ff1.get_event_schedule(year)
@@ -48,8 +46,9 @@ with sidebar:
 @st.cache_data(show_spinner=False)
 def process_speed_data(year, round_number):
     """Process speed trap and lap data efficiently - No heavy telemetry processing"""
-    session = ff1.get_session(year, round_number, "R")
-    session.load()
+    session = load_session(year=year, round_number=round_number, session_type="R")
+    if session is None:
+        return None
     laps = session.laps
 
     results = session.results
@@ -77,9 +76,13 @@ def process_speed_data(year, round_number):
 
         overall_max = max(max_speeds.values()) if max_speeds else 0
 
-        fastest_lap = driver_laps.pick_fastest()
-        team = fastest_lap.get("Team", "Unknown")
-        compound = fastest_lap.get("Compound", "Unknown")
+        try:
+            fastest_lap = driver_laps.pick_fastest()
+            team = fastest_lap.get("Team", "Unknown")
+            compound = fastest_lap.get("Compound", "Unknown")
+        except Exception:
+            team = driver_laps.iloc[0].get("Team", "Unknown")
+            compound = driver_laps.iloc[0].get("Compound", "Unknown")
 
         position_data = driver_laps[["LapNumber", "Position"]].dropna()
         overtakes = 0
@@ -143,7 +146,7 @@ def create_overtakes_position_chart(df, circuit, year, round_number):
 
     mask = plot_df["point_count"] > 1
     if mask.any():
-        for point_key, group in plot_df[mask].groupby("point_key"):
+        for _, group in plot_df[mask].groupby("point_key"):
             n_points = len(group)
 
             angles = np.linspace(0, 2 * np.pi, n_points, endpoint=False)
@@ -315,7 +318,17 @@ def create_race_progression_chart(year, round_number):
             bordercolor="rgba(255,255,255,0.2)",
             borderwidth=1,
         ),
+        hovermode="x unified",
+        hoverlabel=dict(
+            namelength=-1,
+            bgcolor="rgba(255,255,255,0.9)",
+            font_size=10,
+        ),
     )
+
+    for i, trace in enumerate(fig.data):
+        if "name" in trace and not trace.name.startswith(f"{i + 1}. "):
+            trace.name = f"{i + 1}. {trace.name}"
 
     fig.update_xaxes(gridcolor="rgba(255,255,255,0.1)", showgrid=True)
     fig.update_yaxes(gridcolor="rgba(255,255,255,0.1)", showgrid=True)
@@ -330,16 +343,16 @@ if df.empty:
     st.warning("No speed data available for this race.")
     st.stop()
 
+with st.spinner("Creating visualizations..."):
+    fig_overtakes = create_overtakes_position_chart(df, circuit, year, round_number)
+    st.plotly_chart(fig_overtakes, use_container_width=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
-fig_overtakes = create_overtakes_position_chart(df, circuit, year, round_number)
-st.plotly_chart(fig_overtakes, use_container_width=True)
-st.markdown("</div>", unsafe_allow_html=True)
+    st.divider()
 
-st.divider()
-
-fig_positions = create_race_progression_chart(year, round_number)
-st.plotly_chart(fig_positions, use_container_width=True)
-st.markdown("</div>", unsafe_allow_html=True)
+    fig_positions = create_race_progression_chart(year, round_number)
+    st.plotly_chart(fig_positions, use_container_width=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
 st.subheader("Race Statistics")
 
