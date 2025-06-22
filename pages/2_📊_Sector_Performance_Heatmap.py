@@ -89,14 +89,28 @@ if session is None:
 laps_data = session.laps
 
 
-drivers = laps_data["Driver"].unique().tolist()
+driver_codes = laps_data["Driver"].unique().tolist()
+
+driver_to_code = {}
+driver_full_names = []
+for code in driver_codes:
+    full_name = get_driver_full_name(session.results, code)
+    if full_name:
+        driver_to_code[full_name] = code
+        driver_full_names.append(full_name)
+    else:
+        driver_to_code[code] = code
+        driver_full_names.append(code)
+
+driver_full_names.sort()
 
 with st.sidebar:
-    selected_driver = st.selectbox(
+    selected_driver_name = st.selectbox(
         "Select Driver",
-        drivers,
+        driver_full_names,
     )
 
+    selected_driver = driver_to_code[selected_driver_name]
     laps_data = laps_data.pick_drivers(selected_driver)
 
 
@@ -266,7 +280,7 @@ def create_sector_heatmap(heatmap_data, driver_name, circuit, year):
 heatmap_data, valid_laps = prepare_heatmap_data(laps_data, selected_driver)
 
 if heatmap_data is None:
-    st.warning(f"No sector data available for {selected_driver} in this session.")
+    st.warning(f"No sector data available for {selected_driver_name} in this session.")
 else:
     with st.expander("Sector Statistics", expanded=False):
 
@@ -337,8 +351,8 @@ else:
             best_lap_time = timedelta(seconds=best_lap_time)
             best_lap_time_str = f"{best_lap_time.seconds // 60}:{best_lap_time.seconds % 60:02d}.{best_lap_time.microseconds // 1000:03d}"
 
-            st.markdown("""
-            ### 🏁 Lap Analysis
+            st.markdown(f"""
+            ### 🏁 Lap Analysis for {selected_driver_name}
             
             This analysis compares the driver's actual best lap with a theoretical best lap time.
             The theoretical best combines the fastest sectors from any lap, showing the potential if the driver could perform perfectly across all sectors in a single lap.
@@ -373,5 +387,6 @@ else:
             )
             st.warning("Could not calculate actual best lap time")
 
-    fig = create_sector_heatmap(heatmap_data, selected_driver, circuit, year)
+    # Use the selected driver code for data filtering but pass the full name for display
+    fig = create_sector_heatmap(heatmap_data, selected_driver_name, circuit, year)
     st.plotly_chart(fig, use_container_width=True)

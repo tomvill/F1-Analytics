@@ -509,19 +509,52 @@ if session is None:
     )
     st.stop()
 
-drivers = session.laps["Driver"].unique().tolist()
+driver_codes = session.laps["Driver"].unique().tolist()
+
+driver_name_to_abbr = {}
+driver_abbrs = []
+driver_full_names = []
+
+for driver in driver_codes:
+    try:
+        driver_info = session.get_driver(driver)
+        driver_abbr = driver_info["Abbreviation"]
+        driver_full_name = driver_info["FullName"]
+
+        driver_abbrs.append(driver_abbr)
+        driver_full_names.append(driver_full_name)
+        driver_name_to_abbr[driver_full_name] = driver_abbr
+    except Exception:
+        driver_full_name = driver
+        driver_abbr = driver
+        driver_full_names.append(driver_full_name)
+        driver_abbrs.append(driver_abbr)
+        driver_name_to_abbr[driver_full_name] = driver_abbr
+
+abbr_to_driver_name = {
+    abbr: full_name for full_name, abbr in driver_name_to_abbr.items()
+}
+
+driver_data = sorted(zip(driver_full_names, driver_abbrs), key=lambda x: x[0])
+driver_full_names, driver_abbrs = zip(*driver_data) if driver_data else ([], [])
+driver_full_names = list(driver_full_names)
+driver_abbrs = list(driver_abbrs)
 
 with driver_placeholder.container():
-    selected_driver = st.selectbox(
+    selected_driver_name = st.selectbox(
         "Select Driver",
-        drivers,
+        options=driver_abbrs,
+        format_func=lambda abbr: f"{abbr_to_driver_name[abbr]} ({abbr})",
         help="Select a driver to visualize their telemetry data on the track map",
     )
+
+    selected_driver = selected_driver_name
 
 driver_laps = session.laps.pick_drivers(selected_driver)
 
 if driver_laps.empty:
-    st.warning(f"No lap data available for {selected_driver} in this session.")
+    driver_display_name = abbr_to_driver_name.get(selected_driver, selected_driver)
+    st.warning(f"No lap data available for {driver_display_name} in this session.")
     st.stop()
 
 available_laps = sorted(driver_laps["LapNumber"].astype(int).unique().tolist())
@@ -533,8 +566,9 @@ selected_lap_number = None
 try:
     selected_lap = driver_laps.pick_fastest()
     if selected_lap is None or selected_lap.empty:
+        driver_display_name = abbr_to_driver_name.get(selected_driver, selected_driver)
         st.warning(
-            f"No fastest lap available for {selected_driver}. This could be due to a DNF (Did Not Finish) or insufficient lap data."
+            f"No fastest lap available for {driver_display_name}. This could be due to a DNF (Did Not Finish) or insufficient lap data."
         )
         st.info(
             "Please try selecting a different driver or check if this driver completed any valid laps in this session."
