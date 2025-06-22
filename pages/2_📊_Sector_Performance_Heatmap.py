@@ -8,13 +8,13 @@ import streamlit as st
 
 from utils.cache_utils import setup_fastf1_cache
 from utils.driver_data import get_driver_full_name
+from utils.session_data import load_session
 from utils.styling import (
     apply_f1_styling,
     create_f1_metric_card,
     get_f1_heatmap_colorscale,
     get_f1_plotly_layout,
 )
-from utils.session_data import load_session
 
 st.set_page_config(
     page_title="F1 Analytics - Sector Performance Heatmap",

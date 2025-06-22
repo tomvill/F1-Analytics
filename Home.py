@@ -1,7 +1,6 @@
 import streamlit as st
 
-from utils.cache_utils import setup_fastf1_cache
-from utils.cache_utils import clear_fastf1_cache, get_cache_info
+from utils.cache_utils import clear_fastf1_cache, get_cache_info, setup_fastf1_cache
 
 setup_fastf1_cache()
 

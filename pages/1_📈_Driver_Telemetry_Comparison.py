@@ -8,9 +8,9 @@ import streamlit as st
 from utils.cache_utils import setup_fastf1_cache
 from utils.session_data import (
     get_available_years,
+    get_drivers_mapping,
     get_race_events,
     load_session,
-    get_drivers_mapping,
 )
 
 fastf1.plotting.setup_mpl(
