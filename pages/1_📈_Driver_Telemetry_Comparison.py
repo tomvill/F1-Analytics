@@ -1,5 +1,5 @@
 import datetime
-from typing import Dict, List, Tuple
+from typing import List, Tuple
 
 import fastf1
 import fastf1.plotting
@@ -13,7 +13,7 @@ fastf1.plotting.setup_mpl(
 )
 
 st.set_page_config(
-    page_title="Driver Telemetry Comparison", layout="centered", page_icon="📈"
+    page_title="Driver Telemetry Comparison", layout="wide", page_icon="📈"
 )
 st.title("📈 Driver Telemetry Comparison")
 
@@ -71,38 +71,47 @@ def load_race_session(year: int, event: str, _schedule) -> fastf1.core.Session:
     return session
 
 
-def plot_driver_telemetry(
-    session: fastf1.core.Session, metric: str, metric_label: str
-) -> go.Figure:
+def plot_multi_driver_telemetry_comparison(
+    session: fastf1.core.Session, drivers: List[str], metric: str, metric_label: str
+) -> Tuple[go.Figure, List[str]]:
     """
-    Plot the selected metric vs distance for all drivers, using their fastest lap.
+    Plot the selected metric vs distance for multiple drivers, using their fastest laps.
 
     Args:
         session (fastf1.core.Session): Loaded F1 session
+        drivers (List[str]): List of driver abbreviations
         metric (str): Selected telemetry metric to plot
         metric_label (str): Display label for the selected metric
 
     Returns:
-        go.Figure: Plotly figure with driver telemetry
+        Tuple[go.Figure, List[str]]: Plotly figure with driver telemetry comparison and list of drivers with missing data
     """
     fig = go.Figure()
-    team_styles: Dict[str, int] = {}
     missing_data_drivers = []
 
-    for driver in session.drivers:
-        laps = session.laps.pick_drivers(driver)
-        if laps.empty:
-            try:
-                driver_abbr = session.get_driver(driver)["Abbreviation"]
-                missing_data_drivers.append(driver_abbr)
-            except Exception:
-                missing_data_drivers.append(str(driver))
-            continue
+    team_drivers = {}
 
+    for driver_abbr in drivers:
         try:
-            driver_abbr = session.get_driver(driver)["Abbreviation"]
-            team = session.get_driver(driver)["TeamName"]
+            driver_info = next(
+                (
+                    d
+                    for d in session.drivers
+                    if session.get_driver(d)["Abbreviation"] == driver_abbr
+                ),
+                None,
+            )
 
+            if driver_info is None:
+                missing_data_drivers.append(driver_abbr)
+                continue
+
+            laps = session.laps.pick_drivers(driver_info)
+            if laps.empty:
+                missing_data_drivers.append(driver_abbr)
+                continue
+
+            team = session.get_driver(driver_info)["TeamName"]
             fastest_lap = laps.pick_fastest()
             telemetry = fastest_lap.get_telemetry()
 
@@ -112,31 +121,30 @@ def plot_driver_telemetry(
 
             color = fastf1.plotting.get_team_color(team, session=session)
 
-            if team not in team_styles:
-                team_styles[team] = 0
+            if team not in team_drivers:
+                team_drivers[team] = 0
 
-            line_dash = ["solid", "dash", "dot"][team_styles[team] % 3]
+            line_style = "solid" if team_drivers[team] == 0 else "dash"
+            team_drivers[team] += 1
+
+            driver_full_name = session.get_driver(driver_info)["FullName"]
 
             fig.add_trace(
                 go.Scatter(
-                    x=telemetry["Distance"],
-                    y=telemetry[metric],
+                    x=telemetry["Distance"].round(),
+                    y=telemetry[metric].round(),
                     mode="lines",
                     name=driver_abbr,
-                    line=dict(color=color, dash=line_dash),
+                    line=dict(color=color, dash=line_style),
+                    hovertemplate=f"Distance: %{{x:.0f}} m<br>Driver: {driver_full_name}<br>{metric_label}: %{{y}}<extra></extra>",
                 )
             )
-            team_styles[team] += 1
 
         except Exception:
-            try:
-                missing_data_drivers.append(driver_abbr)
-            except Exception:
-                missing_data_drivers.append(str(driver))
+            missing_data_drivers.append(driver_abbr)
             continue
 
     fig.update_layout(
-        title=f"Driver {metric_label} vs Distance",
         xaxis_title="Distance (m)",
         yaxis_title=metric_label,
         legend_title="Drivers",
@@ -145,10 +153,7 @@ def plot_driver_telemetry(
         hovermode="x unified",
     )
 
-    if missing_data_drivers:
-        st.info(f"No data available for: {', '.join(missing_data_drivers)}")
-
-    return fig
+    return fig, missing_data_drivers
 
 
 CAR_DATA_METRICS = {
@@ -156,7 +161,7 @@ CAR_DATA_METRICS = {
     "RPM": "RPM",
     "Gear Number": "nGear",
     "Throttle [%]": "Throttle",
-    "Brake (On/Off)": "Brake",
+    "Brake": "Brake",
 }
 
 years = get_available_years()
@@ -172,27 +177,77 @@ with st.sidebar:
         event_names, schedule = get_race_events(selected_year)
         selected_event = st.selectbox("Select Grand Prix", event_names)
 
-        selected_metric_label = st.selectbox(
-            "Select Car Data Metric", list(CAR_DATA_METRICS.keys()), index=0
+        with st.spinner("Loading race session..."):
+            session = load_race_session(selected_year, selected_event, schedule)
+
+        driver_name_to_abbr = {}
+        driver_abbrs = []
+        driver_full_names = []
+
+        for driver in session.drivers:
+            try:
+                driver_info = session.get_driver(driver)
+                driver_abbr = driver_info["Abbreviation"]
+                driver_full_name = driver_info["FullName"]
+
+                driver_abbrs.append(driver_abbr)
+                driver_full_names.append(driver_full_name)
+                driver_name_to_abbr[driver_full_name] = driver_abbr
+            except Exception:
+                continue
+
+        driver_data = sorted(zip(driver_full_names, driver_abbrs), key=lambda x: x[0])
+        driver_full_names, driver_abbrs = zip(*driver_data) if driver_data else ([], [])
+        driver_full_names = list(driver_full_names)
+        driver_abbrs = list(driver_abbrs)
+
+        abbr_to_driver_name = {
+            abbr: full_name for full_name, abbr in driver_name_to_abbr.items()
+        }
+
+        default_drivers = driver_abbrs[: min(2, len(driver_abbrs))]
+
+        selected_drivers = st.multiselect(
+            "Select Drivers to Compare",
+            options=driver_abbrs,
+            default=default_drivers,
+            format_func=lambda abbr: f"{abbr_to_driver_name[abbr]} ({abbr})",
+            help="Select at least two drivers to compare their telemetry data",
         )
-        selected_metric = CAR_DATA_METRICS[selected_metric_label]
+
+        if len(selected_drivers) < 2:
+            st.warning("Please select at least two drivers for comparison")
+            st.stop()
+
     except Exception as e:
-        st.error(f"Error loading race events: {e}")
+        st.error(f"Error loading race events or drivers: {e}")
         st.stop()
 
-st.write(f"**{selected_event} {selected_year} - Race**")
+st.subheader(f"**{selected_event} {selected_year} - Race**")
 st.write(
-    "This visualization compares driver telemetry data to analyze performance differences around the track."
+    "This visualization compares telemetry data between drivers to analyze performance differences around the track."
 )
 
 try:
-    with st.spinner("Loading Race data..."):
-        session = load_race_session(selected_year, selected_event, schedule)
+    all_missing_drivers = set()
 
-    with st.spinner("Creating telemetry plot..."):
-        fig = plot_driver_telemetry(session, selected_metric, selected_metric_label)
-        st.plotly_chart(fig, use_container_width=True)
+    for metric_label, metric in CAR_DATA_METRICS.items():
+        st.subheader(f"{metric_label} Comparison")
+
+        with st.spinner(f"Creating {metric_label} plot..."):
+            fig, missing_drivers = plot_multi_driver_telemetry_comparison(
+                session, selected_drivers, metric, metric_label
+            )
+            st.plotly_chart(fig, use_container_width=True)
+            all_missing_drivers.update(missing_drivers)
+
+    if all_missing_drivers:
+        st.warning(
+            f"Some telemetry data is missing for: {', '.join(all_missing_drivers)}"
+        )
+
 except Exception as e:
-    st.warning(f"Could not load race data or plot telemetry: {e}")
-    st.info(f"Try selecting a different Grand Prix for {selected_year}.")
-    st.error(f"Error details: {e}")
+    st.error(f"Could not plot telemetry comparison: {e}")
+    st.info(
+        f"Try selecting different drivers or a different Grand Prix for {selected_year}."
+    )
