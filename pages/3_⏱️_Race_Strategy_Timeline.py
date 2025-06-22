@@ -1,4 +1,3 @@
-import datetime
 from collections import defaultdict
 
 import fastf1
@@ -7,66 +6,15 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from utils.cache_utils import setup_fastf1_cache
-from utils.styling import apply_f1_styling, get_f1_plotly_layout
+from utils.session_data import get_available_years, get_race_events, load_session
+from utils.styling import apply_f1_styling
 
 st.set_page_config(page_title="Race Strategy Timeline", layout="wide", page_icon="⏱️")
 st.title("⏱️ Race Strategy Timeline")
 
-# Apply F1 styling
 apply_f1_styling()
 
 setup_fastf1_cache()
-
-
-@st.cache_data(ttl=86400)
-def get_available_years() -> list[int]:
-    """
-    Get a list of available years for F1 data, from 2018 to current year.
-
-    Returns:
-        List[int]: List of years with available F1 data
-    """
-    current_year = datetime.datetime.now().year
-    return list(range(2018, current_year + 1))
-
-
-@st.cache_data(ttl=86400)
-def get_race_events(year: int) -> tuple[list[str], fastf1.events.EventSchedule]:
-    """
-    Get the race events for a specific year, excluding pre-season testing.
-
-    Args:
-        year (int): The year to get events for
-
-    Returns:
-        Tuple[List[str], fastf1.events.EventSchedule]: A tuple containing list of event names
-                                                      and the full schedule DataFrame
-    """
-    schedule = fastf1.get_event_schedule(year)
-    race_schedule = schedule[schedule["EventFormat"] != "testing"]
-    event_names = race_schedule["EventName"].tolist()
-    return event_names, race_schedule
-
-
-@st.cache_data(ttl=86400, show_spinner=False)
-def load_race_session(year: int, event: str, _schedule) -> fastf1.core.Session:
-    """
-    Load the FastF1 race session for the selected year and event.
-
-    Args:
-        year (int): Selected year
-        event (str): Selected event name
-        _schedule: F1 event schedule DataFrame (prefixed with _ to prevent hashing)
-
-    Returns:
-        fastf1.core.Session: Loaded F1 race session
-    """
-    event_row = _schedule[_schedule["EventName"] == event].iloc[0]
-    gp_round = int(event_row["RoundNumber"])
-
-    session = fastf1.get_session(year, gp_round, "R")
-    session.load()
-    return session
 
 
 def create_strategy_plot(session: fastf1.core.Session) -> tuple[go.Figure, list[str]]:
@@ -83,6 +31,13 @@ def create_strategy_plot(session: fastf1.core.Session) -> tuple[go.Figure, list[
     laps = session.laps
 
     drivers = session.drivers
+    driver_full_names = {}
+    for driver in drivers:
+        driver_info = session.get_driver(driver)
+        abbr = driver_info["Abbreviation"]
+        full_name = f"{driver_info['FirstName']} {driver_info['LastName']}"
+        driver_full_names[abbr] = full_name
+
     drivers = [session.get_driver(driver)["Abbreviation"] for driver in drivers]
 
     stints = laps[["Driver", "Stint", "Compound", "LapNumber"]]
@@ -130,7 +85,7 @@ def create_strategy_plot(session: fastf1.core.Session) -> tuple[go.Figure, list[
                 legendgroup=compound,
                 showlegend=False,
                 hoverinfo="text",
-                hovertext=f"Driver: {driver}<br>Compound: {compound}<br>Laps: {previous_stint_end + 1}-{previous_stint_end + row['StintLength']}",
+                hovertext=f"Driver: {driver_full_names[driver]}<br>Compound: {compound}<br>Laps: {previous_stint_end + 1}-{previous_stint_end + row['StintLength']}",
             )
 
             fig.add_trace(trace)
@@ -186,13 +141,10 @@ def create_strategy_plot(session: fastf1.core.Session) -> tuple[go.Figure, list[
 
 
 years = get_available_years()
-default_year_index = min(
-    years.index(2024) if 2024 in years else len(years) - 1, len(years) - 1
-)
 
 with st.sidebar:
     st.header("Filters")
-    selected_year = st.selectbox("Select Year", years, index=default_year_index)
+    selected_year = st.selectbox("Select Year", years, index=0)
 
     try:
         event_names, schedule = get_race_events(selected_year)
@@ -201,14 +153,19 @@ with st.sidebar:
         st.error(f"Error loading race events: {e}")
         st.stop()
 
-st.write(f"**{selected_event} {selected_year} - Race Strategy**")
 st.write(
     "This visualization shows the tire stint strategies used by each driver throughout the race."
 )
 
 try:
     with st.spinner("Loading race data..."):
-        session = load_race_session(selected_year, selected_event, schedule)
+        session = load_session(
+            year=selected_year, event=selected_event, _schedule=schedule
+        )
+
+        if session is None:
+            st.warning("No data available for this session. Please try another race.")
+            st.stop()
 
     with st.spinner("Creating strategy plot..."):
         fig, driver_order = create_strategy_plot(session)
@@ -265,7 +222,6 @@ try:
         if missing_drivers:
             st.info(f"No strategy data available for: {', '.join(missing_drivers)}")
 
-except Exception as e:
-    st.warning(f"Could not load race data or create strategy plot: {e}")
+except Exception:
+    st.warning("Could not load race data or create strategy plot")
     st.info(f"Try selecting a different Grand Prix for {selected_year}.")
-    st.error(f"Error details: {e}")

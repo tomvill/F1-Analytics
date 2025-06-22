@@ -10,6 +10,7 @@ setup-env:
 		curl -sSL https://install.python-poetry.org | python3 -; \
 	fi
 	@echo "Installing dependencies with Poetry..."
+	poetry config virtualenvs.in-project true
 	poetry install
 	@echo "Environment is set up. To activate it, run: source .venv/bin/activate"
 

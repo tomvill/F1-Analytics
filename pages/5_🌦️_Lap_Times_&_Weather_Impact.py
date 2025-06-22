@@ -1,4 +1,3 @@
-import datetime
 from typing import Dict, List, Tuple
 
 import fastf1
@@ -34,8 +33,7 @@ def get_available_years() -> List[int]:
     Returns:
         List[int]: List of years with available F1 data
     """
-    current_year = datetime.datetime.now().year
-    return list(range(2018, current_year + 1))
+    return list(range(2024, 2017, -1))
 
 
 @st.cache_data(ttl=86400)
@@ -78,7 +76,9 @@ def load_race_session(year: int, event: str, _schedule) -> fastf1.core.Session:
 
 
 def plot_lap_times(
-    session: fastf1.core.Session, selected_drivers: List[str]
+    session: fastf1.core.Session,
+    selected_drivers: List[str],
+    weather_data: Dict[str, object] = None,
 ) -> go.Figure:
     """
     Plot lap times vs lap number for selected drivers in the race.
@@ -86,6 +86,7 @@ def plot_lap_times(
     Args:
         session (fastf1.core.Session): Loaded F1 race session
         selected_drivers (List[str]): List of selected driver abbreviations
+        weather_data (Dict[str, object], optional): Weather data dictionary
 
     Returns:
         go.Figure: Plotly figure with lap times
@@ -122,11 +123,10 @@ def plot_lap_times(
             driver_abbr = driver_info["Abbreviation"]
             team = driver_info["TeamName"]
 
-            # Get driver laps
             driver_laps = laps_data.pick_drivers(driver_abbr)
 
             if driver_laps.empty:
-                missing_data_drivers.append(driver_abbr)
+                missing_data_drivers.append(driver)
                 continue
 
             lap_times = []
@@ -138,7 +138,7 @@ def plot_lap_times(
                         lap_times.append(lap_time_seconds)
 
             if not lap_times:
-                missing_data_drivers.append(driver_abbr)
+                missing_data_drivers.append(driver)
                 continue
 
             lap_numbers = list(range(1, len(lap_times) + 1))
@@ -159,6 +159,8 @@ def plot_lap_times(
 
             team_styles[team] += 1
 
+            driver_full_name = abbr_to_driver_name.get(driver_abbr, driver_abbr)
+
             fig.add_trace(
                 go.Scatter(
                     x=lap_numbers,
@@ -166,16 +168,70 @@ def plot_lap_times(
                     mode="lines",
                     name=driver_abbr,
                     line=dict(color=color, dash=line_dash),
-                    hovertemplate=f"Lap %{{x}}<br>Time: %{{y:.3f}}s<br>Team: {team}<extra>{driver_abbr}</extra>",
+                    hovertemplate=f"{driver_full_name}: %{{y:.3f}}s<extra></extra>",
                 )
             )
 
         except Exception:
-            try:
-                missing_data_drivers.append(driver_abbr)
-            except Exception:
-                missing_data_drivers.append(str(driver))
+            missing_data_drivers.append(driver)
             continue
+
+    if (
+        weather_data
+        and weather_data.get("available")
+        and weather_data.get("time_series")
+    ):
+        try:
+            weather_ts = weather_data["time_series"]
+            if len(weather_ts.get("rainfall", [])) > 0:
+                max_laps = (
+                    session.laps["LapNumber"].max() if not session.laps.empty else 0
+                )
+                rainfall_data = weather_ts["rainfall"]
+
+                if max(rainfall_data) > 0:
+                    num_laps = int(max_laps)
+                    rain_periods = []
+
+                    segments = len(rainfall_data)
+                    rain_start = None
+
+                    for i, rain_value in enumerate(rainfall_data):
+                        lap_position = (
+                            1 + (i / segments) * num_laps if segments > 0 else 1
+                        )
+
+                        if rain_value > 0 and rain_start is None:
+                            rain_start = lap_position
+                        elif rain_value == 0 and rain_start is not None:
+                            rain_periods.append((rain_start, lap_position))
+                            rain_start = None
+
+                    if rain_start is not None:
+                        rain_periods.append((rain_start, num_laps))
+
+                    for i, (start_lap, end_lap) in enumerate(rain_periods):
+                        fig.add_vrect(
+                            x0=start_lap,
+                            x1=end_lap,
+                            fillcolor="rgba(0, 130, 255, 0.15)",
+                            layer="below",
+                            line_width=0,
+                            opacity=0.5,
+                        )
+
+                    fig.add_trace(
+                        go.Scatter(
+                            x=[None],
+                            y=[None],
+                            mode="lines",
+                            line=dict(color="rgba(0, 130, 255, 0.15)", width=10),
+                            name="Rainfall Periods",
+                            showlegend=True,
+                        )
+                    )
+        except Exception as e:
+            st.warning(f"Could not overlay rainfall data: {str(e)}")
 
     fig.update_layout(
         title="Lap Times Throughout Race",
@@ -208,7 +264,10 @@ def plot_lap_times(
         )
 
     if missing_data_drivers:
-        st.info(f"No lap time data available for: {', '.join(missing_data_drivers)}")
+        missing_driver_names = [
+            abbr_to_driver_name.get(abbr, abbr) for abbr in missing_data_drivers
+        ]
+        st.info(f"No lap time data available for: {', '.join(missing_driver_names)}")
 
     return fig
 
@@ -356,13 +415,11 @@ def display_weather_panel(weather_data: Dict[str, object]) -> None:
             f"Max: {weather_data['wind']['speed_max']} km/h",
         )
 
-    # Display rain status with icon
     if weather_data["rain"]:
         st.warning("⛈️ Rain detected during this session", icon="⚠️")
     else:
         st.success("☀️ No rainfall during this session", icon="✅")
 
-    # Display temperature range
     st.subheader("Temperature Details")
     st.markdown(f"""
     | Metric | Min | Mean | Max | Variation |
@@ -372,11 +429,9 @@ def display_weather_panel(weather_data: Dict[str, object]) -> None:
     | **Humidity** | {weather_data["humidity"]["min"]}% | {weather_data["humidity"]["mean"]}% | {weather_data["humidity"]["max"]}% | {weather_data["humidity"]["max"] - weather_data["humidity"]["min"]:.1f}% |
     """)
 
-    # Add wind direction info
     direction = weather_data["wind"]["direction_mean"]
     cardinal_direction = "N/A"
 
-    # Convert degrees to cardinal directions
     if 337.5 <= direction <= 360 or 0 <= direction < 22.5:
         cardinal_direction = "North"
     elif 22.5 <= direction < 67.5:
@@ -400,7 +455,7 @@ def display_weather_panel(weather_data: Dict[str, object]) -> None:
 st.sidebar.header("Race Selection")
 
 selected_year = st.sidebar.selectbox(
-    "Select Year", options=get_available_years(), index=len(get_available_years()) - 1
+    "Select Year", options=get_available_years(), index=0
 )
 
 events, schedule = get_race_events(selected_year)
@@ -414,6 +469,25 @@ with st.spinner("Loading race data..."):
         st.sidebar.header("Driver Selection")
         driver_info = get_driver_info(session)
         team_drivers = get_team_drivers(driver_info)
+
+        driver_name_to_abbr = {}
+        driver_abbrs = []
+        driver_full_names = []
+
+        for driver_abbr, info in driver_info.items():
+            driver_full_name = info["FullName"]
+            driver_abbrs.append(driver_abbr)
+            driver_full_names.append(driver_full_name)
+            driver_name_to_abbr[driver_full_name] = driver_abbr
+
+        driver_data = sorted(zip(driver_full_names, driver_abbrs), key=lambda x: x[0])
+        driver_full_names, driver_abbrs = zip(*driver_data) if driver_data else ([], [])
+        driver_full_names = list(driver_full_names)
+        driver_abbrs = list(driver_abbrs)
+
+        abbr_to_driver_name = {
+            abbr: full_name for full_name, abbr in driver_name_to_abbr.items()
+        }
 
         selection_method = st.sidebar.radio(
             "Select drivers by:",
@@ -444,9 +518,11 @@ with st.spinner("Loading race data..."):
         elif selection_method == "Individual Drivers":
             selected_drivers = st.sidebar.multiselect(
                 "Select Drivers",
-                options=sorted(list(driver_info.keys())),
-                default=sorted(list(driver_info.keys())[:5]),
+                options=driver_abbrs,
+                default=driver_abbrs[: min(5, len(driver_abbrs))],
+                format_func=lambda abbr: f"{abbr_to_driver_name[abbr]} ({abbr})",
             )
+
             if not selected_drivers:
                 st.sidebar.warning("Please select at least one driver")
                 selected_drivers = []
@@ -475,19 +551,15 @@ with st.spinner("Loading race data..."):
 
         st.subheader(f"Lap Times - {selected_year} {selected_event}")
 
-        # Get weather data for the panel
         weather_data = get_weather_data(session)
 
-        # Create a two-column layout
         lap_times_col, weather_col = st.columns([0.65, 0.35])
 
         with lap_times_col:
-            # Display lap time plot (without weather overlay)
-            fig = plot_lap_times(session, selected_drivers)
+            fig = plot_lap_times(session, selected_drivers, weather_data)
             st.plotly_chart(fig, use_container_width=True)
 
         with weather_col:
-            # Weather data display
             display_weather_panel(weather_data)
 
     except Exception as e:

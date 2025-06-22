@@ -1,3 +1,5 @@
+import traceback
+
 import fastf1 as ff1
 import matplotlib as mpl
 import numpy as np
@@ -6,15 +8,24 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from utils.cache_utils import setup_fastf1_cache
-from utils.styling import (
-    apply_f1_styling, get_f1_plotly_layout, create_f1_header, create_f1_metric_card, get_tire_color,
-    create_f1_driver_card, create_f1_tire_info_metric, create_f1_tire_life_metric, 
-    create_f1_tire_na_metrics, create_f1_tire_life_na_metric, create_f1_speed_metrics, create_f1_performance_metric
+from utils.driver_data import (
+    get_driver_full_name,
+    get_driver_headshot_url,
+    get_driver_team_info,
+    get_session_results,
 )
-from utils.driver_data import get_session_results, get_driver_full_name, get_driver_headshot_url, get_driver_team_info
-import matplotlib as mpl
-import traceback
-
+from utils.styling import (
+    apply_f1_styling,
+    create_f1_driver_card,
+    create_f1_metric_card,
+    create_f1_performance_metric,
+    create_f1_speed_metrics,
+    create_f1_tire_info_metric,
+    create_f1_tire_life_metric,
+    create_f1_tire_life_na_metric,
+    create_f1_tire_na_metrics,
+    get_tire_color,
+)
 
 st.set_page_config(
     page_title="F1 Analytics - Track Dynamics Map", page_icon="🗺️", layout="wide"
@@ -23,16 +34,8 @@ st.set_page_config(
 st.title("🗺️ Track Dynamics Map")
 st.markdown("""
 This visualization displays the racing line of the fastest lap of a selected driver for a given race session with a track map with color gradients representing different telemetry data.
-Each segment of the track is colored according to the selected metric, allowing you to analyze:
-- **Speed**: Blue (slow) to Yellow (fast) gradient showing speed variations around the track
-- **Gear**: Different colors for each gear (1-8), highlighting shifting points
-- **Throttle**: Green gradient from 0% to 100% showing throttle application
-- **Brake**: Purple intensity showing braking zones
-
-**Track Features**: White circles with red borders indicate corner numbers for easy reference and analysis.
 """)
 
-# Apply F1 styling
 apply_f1_styling()
 
 setup_fastf1_cache()
@@ -44,11 +47,7 @@ with sidebar:
     st.header("Filters")
 
     current_year = 2024
-    year = st.selectbox(
-        "Select Year",
-        range(current_year, 2017, -1),
-        help="FastF1 provides reliable data from 2018 onwards",
-    )
+    year = st.selectbox("Select Year", range(current_year, 2018, -1))
 
     try:
         events = ff1.get_event_schedule(year)
@@ -104,9 +103,7 @@ with sidebar:
         },
     }
 
-    selected_metric = st.selectbox(
-        "Select Telemetry Metric", list(telemetry_metrics.keys()), index=0
-    )
+    selected_metric = st.selectbox("Metric", list(telemetry_metrics.keys()), index=0)
 
     metric_info = telemetry_metrics[selected_metric]
 
@@ -127,6 +124,28 @@ def load_session_data(year, round_number, session_key):
     except Exception as e:
         st.error(f"Error loading session data: {e}")
         return None
+
+
+def format_lap_time(lap_time) -> str:
+    lap_time_str = str(lap_time)
+
+    if "days" in lap_time_str:
+        lap_time_str = lap_time_str.split("days ")[-1]
+
+    if lap_time_str.count(":") == 1:
+        lap_time_str = f"00:{lap_time_str}"
+    elif lap_time_str.count(":") == 0:
+        lap_time_str = f"00:00:{lap_time_str}"
+
+    if "." not in lap_time_str:
+        lap_time_str = f"{lap_time_str}.000"
+    else:
+        time_parts = lap_time_str.split(".")
+        if len(time_parts) > 1:
+            milliseconds = time_parts[1][:3].ljust(3, "0")
+            lap_time_str = f"{time_parts[0]}.{milliseconds}"
+
+    return lap_time_str
 
 
 def create_track_telemetry_map(
@@ -308,9 +327,15 @@ def create_track_telemetry_map(
                     f"Distance: {telemetry_data['Distance'].iloc[i]:.0f}m<br>"
                     + f"{title}: "
                     + (
-                        f"{color_values[i]:.0f}"
-                        if is_discrete
-                        else f"{color_values[i]:.1f}"
+                        "On"
+                        if metric_column == "Brake" and color_values[i] == 1
+                        else "Off"
+                        if metric_column == "Brake" and color_values[i] == 0
+                        else (
+                            f"{color_values[i]:.0f}"
+                            if is_discrete
+                            else f"{color_values[i]:.1f}"
+                        )
                     )
                     + (
                         ""
@@ -333,7 +358,7 @@ def create_track_telemetry_map(
         ):
             continue
 
-        gap_color = "rgba(150, 150, 150, 0.7)"  # Gray with some transparency
+        gap_color = "rgba(150, 150, 150, 0.7)"
 
         fig.add_trace(
             go.Scatter(
@@ -401,7 +426,6 @@ def create_track_telemetry_map(
             align="left",
         )
 
-    # Add corner markers if circuit info is available
     if (
         circuit_info is not None
         and hasattr(circuit_info, "corners")
@@ -469,7 +493,7 @@ def create_track_telemetry_map(
         height=800,
         hoverlabel=dict(
             bgcolor="rgba(0, 0, 0, 0.8)",
-            bordercolor="#FF1E00",
+            bordercolor="#BE2915",
             font=dict(size=14, color="white", family="Arial"),
         ),
     )
@@ -485,19 +509,52 @@ if session is None:
     )
     st.stop()
 
-drivers = session.laps["Driver"].unique().tolist()
+driver_codes = session.laps["Driver"].unique().tolist()
+
+driver_name_to_abbr = {}
+driver_abbrs = []
+driver_full_names = []
+
+for driver in driver_codes:
+    try:
+        driver_info = session.get_driver(driver)
+        driver_abbr = driver_info["Abbreviation"]
+        driver_full_name = driver_info["FullName"]
+
+        driver_abbrs.append(driver_abbr)
+        driver_full_names.append(driver_full_name)
+        driver_name_to_abbr[driver_full_name] = driver_abbr
+    except Exception:
+        driver_full_name = driver
+        driver_abbr = driver
+        driver_full_names.append(driver_full_name)
+        driver_abbrs.append(driver_abbr)
+        driver_name_to_abbr[driver_full_name] = driver_abbr
+
+abbr_to_driver_name = {
+    abbr: full_name for full_name, abbr in driver_name_to_abbr.items()
+}
+
+driver_data = sorted(zip(driver_full_names, driver_abbrs), key=lambda x: x[0])
+driver_full_names, driver_abbrs = zip(*driver_data) if driver_data else ([], [])
+driver_full_names = list(driver_full_names)
+driver_abbrs = list(driver_abbrs)
 
 with driver_placeholder.container():
-    selected_driver = st.selectbox(
+    selected_driver_name = st.selectbox(
         "Select Driver",
-        drivers,
+        options=driver_abbrs,
+        format_func=lambda abbr: f"{abbr_to_driver_name[abbr]} ({abbr})",
         help="Select a driver to visualize their telemetry data on the track map",
     )
+
+    selected_driver = selected_driver_name
 
 driver_laps = session.laps.pick_drivers(selected_driver)
 
 if driver_laps.empty:
-    st.warning(f"No lap data available for {selected_driver} in this session.")
+    driver_display_name = abbr_to_driver_name.get(selected_driver, selected_driver)
+    st.warning(f"No lap data available for {driver_display_name} in this session.")
     st.stop()
 
 available_laps = sorted(driver_laps["LapNumber"].astype(int).unique().tolist())
@@ -509,8 +566,9 @@ selected_lap_number = None
 try:
     selected_lap = driver_laps.pick_fastest()
     if selected_lap is None or selected_lap.empty:
+        driver_display_name = abbr_to_driver_name.get(selected_driver, selected_driver)
         st.warning(
-            f"No fastest lap available for {selected_driver}. This could be due to a DNF (Did Not Finish) or insufficient lap data."
+            f"No fastest lap available for {driver_display_name}. This could be due to a DNF (Did Not Finish) or insufficient lap data."
         )
         st.info(
             "Please try selecting a different driver or check if this driver completed any valid laps in this session."
@@ -550,7 +608,7 @@ try:
     if "LapNumber" in selected_lap and not isinstance(
         selected_lap["LapNumber"], pd.Series
     ):
-        lap_info["LapNumber"] = selected_lap["LapNumber"]
+        lap_info["LapNumber"] = int(selected_lap["LapNumber"])
     else:
         lap_info["LapNumber"] = (
             selected_lap_number if selected_lap_number is not None else "Unknown"
@@ -560,42 +618,57 @@ try:
         lap_info["LapTime"] = selected_lap["LapTime"]
 
     circuit_info = session.get_circuit_info()
-
+    driver_session_results = get_session_results(year, round_number, session_key)
+    driver_full_name = get_driver_full_name(driver_session_results, selected_driver)
     fig = create_track_telemetry_map(
-        telemetry, metric_info, selected_driver, lap_info, circuit_info
+        telemetry, metric_info, driver_full_name, lap_info, circuit_info
     )
 
     with main_col1:
         st.plotly_chart(fig, use_container_width=True)
 
     with main_col2:
-        # F1-styled Driver Header with photo and information
         try:
-            driver_session_results = get_session_results(year, round_number, session_key)
-            driver_full_name = get_driver_full_name(driver_session_results, selected_driver)
-            driver_headshot = get_driver_headshot_url(driver_session_results, selected_driver)
-            driver_team_info = get_driver_team_info(driver_session_results, selected_driver)
-            driver_display_name = driver_full_name if driver_full_name else selected_driver
-        except:
+            driver_session_results = get_session_results(
+                year, round_number, session_key
+            )
+            driver_full_name = get_driver_full_name(
+                driver_session_results, selected_driver
+            )
+            driver_headshot = get_driver_headshot_url(
+                driver_session_results, selected_driver
+            )
+            driver_team_info = get_driver_team_info(
+                driver_session_results, selected_driver
+            )
+            driver_display_name = (
+                driver_full_name if driver_full_name else selected_driver
+            )
+        except Exception as e:
+            st.error(f"Error loading driver information: {e}")
             driver_display_name = selected_driver
             driver_headshot = None
             driver_team_info = {}
-        
-        # Extract team information
-        team_name = driver_team_info.get('team_name', '')
-        team_color = driver_team_info.get('team_color', '#FF1E00')
-        driver_number = driver_team_info.get('driver_number', '')
-        position = driver_team_info.get('position')
-        dnf_status = driver_team_info.get('dnf', False)
-        
-        # Create F1-styled driver card
+
+        team_name = driver_team_info.get("team_name", "")
+        team_color = driver_team_info.get("team_color", "#FF1E00")
+        driver_number = driver_team_info.get("driver_number", "")
+        position = driver_team_info.get("position")
+        dnf_status = driver_team_info.get("dnf", False)
+
         driver_card_html = create_f1_driver_card(
-            driver_display_name, team_name, team_color, driver_number, 
-            position, dnf_status, driver_headshot, circuit, year
+            driver_display_name,
+            team_name,
+            team_color,
+            driver_number,
+            position,
+            dnf_status,
+            driver_headshot,
+            circuit,
+            year,
         )
         st.markdown(driver_card_html, unsafe_allow_html=True)
 
-        # Lap Time - Main Feature
         lap_time = selected_lap.get("LapTime", None)
         if (
             lap_time is not None
@@ -603,46 +676,27 @@ try:
             and not isinstance(lap_time, pd.Series)
         ):
             try:
-                # Convert lap time to full format: 00:01:32.608
-                lap_time_str = str(lap_time)
-
-                # Handle different formats that FastF1 might return
-                if "days" in lap_time_str:
-                    # Remove days part if present
-                    lap_time_str = lap_time_str.split("days ")[-1]
-
-                # Ensure we have the full HH:MM:SS.mmm format
-                if lap_time_str.count(":") == 1:  # Format: MM:SS.mmm
-                    lap_time_str = f"00:{lap_time_str}"
-                elif lap_time_str.count(":") == 0:  # Format: SS.mmm
-                    lap_time_str = f"00:00:{lap_time_str}"
-
-                # Ensure milliseconds are present and properly formatted
-                if "." not in lap_time_str:
-                    lap_time_str = f"{lap_time_str}.000"
-                else:
-                    # Ensure we have exactly 3 decimal places
-                    time_parts = lap_time_str.split(".")
-                    if len(time_parts) > 1:
-                        milliseconds = time_parts[1][:3].ljust(
-                            3, "0"
-                        )  # Take first 3 digits, pad if needed
-                        lap_time_str = f"{time_parts[0]}.{milliseconds}"
+                lap_time_str = format_lap_time(lap_time)
 
             except (IndexError, AttributeError, ValueError):
                 lap_time_str = str(lap_time)
         else:
             lap_time_str = "N/A"
-        
-        st.markdown(create_f1_metric_card(f"Lap {selected_lap['LapNumber']} Time", lap_time_str), unsafe_allow_html=True)
-        
+
+        st.markdown(
+            create_f1_metric_card(
+                f"Lap {int(selected_lap['LapNumber'])} Time", lap_time_str
+            ),
+            unsafe_allow_html=True,
+        )
+
         with st.expander("Tire Information", expanded=False):
             compound = selected_lap.get("Compound", None)
-            tyre_life = selected_lap.get("TyreLife", None)
+            tyre_life = int(selected_lap.get("TyreLife", None))
 
             if compound is not None and not pd.isna(compound):
                 tire_color = get_tire_color(compound)
-                
+
                 tire_info_html = create_f1_tire_info_metric(compound, tire_color)
                 st.markdown(tire_info_html, unsafe_allow_html=True)
 
@@ -659,7 +713,9 @@ try:
             avg_speed = telemetry["Speed"].mean()
             min_speed = telemetry["Speed"].min()
 
-            speed_metrics_html = create_f1_speed_metrics(max_speed, avg_speed, min_speed)
+            speed_metrics_html = create_f1_speed_metrics(
+                max_speed, avg_speed, min_speed
+            )
             st.markdown(speed_metrics_html, unsafe_allow_html=True)
 
         with st.expander("Performance Metrics", expanded=False):
@@ -690,6 +746,4 @@ try:
 
 except Exception as e:
     st.error(f"Error creating visualization: {e}")
-    import traceback
-
     st.code(traceback.format_exc())
