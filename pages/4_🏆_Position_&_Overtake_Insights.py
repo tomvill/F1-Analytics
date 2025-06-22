@@ -1,12 +1,12 @@
 import fastf1 as ff1
+import fastf1.plotting
+import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
-import numpy as np
 
 from utils.cache_utils import setup_fastf1_cache
-import fastf1.plotting
-from utils.styling import get_position_overtake_css, create_f1_stat_card
+from utils.styling import create_f1_stat_card, get_position_overtake_css
 
 np.random.seed(42)
 

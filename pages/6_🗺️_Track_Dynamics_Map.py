@@ -1,31 +1,31 @@
+import traceback
+
 import fastf1 as ff1
 import matplotlib as mpl
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
-import traceback
 
 from utils.cache_utils import setup_fastf1_cache
-from utils.styling import (
-    apply_f1_styling,
-    create_f1_metric_card,
-    get_tire_color,
-    create_f1_driver_card,
-    create_f1_tire_info_metric,
-    create_f1_tire_life_metric,
-    create_f1_tire_na_metrics,
-    create_f1_tire_life_na_metric,
-    create_f1_speed_metrics,
-    create_f1_performance_metric,
-)
 from utils.driver_data import (
-    get_session_results,
     get_driver_full_name,
     get_driver_headshot_url,
     get_driver_team_info,
+    get_session_results,
 )
-
+from utils.styling import (
+    apply_f1_styling,
+    create_f1_driver_card,
+    create_f1_metric_card,
+    create_f1_performance_metric,
+    create_f1_speed_metrics,
+    create_f1_tire_info_metric,
+    create_f1_tire_life_metric,
+    create_f1_tire_life_na_metric,
+    create_f1_tire_na_metrics,
+    get_tire_color,
+)
 
 st.set_page_config(
     page_title="F1 Analytics - Track Dynamics Map", page_icon="🗺️", layout="wide"

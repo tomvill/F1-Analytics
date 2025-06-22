@@ -3,8 +3,9 @@ Centralized Styling
 This module provides the F1-themed styling used in some of our visualizations.
 """
 
+from typing import Any, Dict
+
 import streamlit as st
-from typing import Dict, Any
 
 F1_COLORS = {
     "primary_red": "#FF1E00",

@@ -5,9 +5,10 @@ This module handles fetching driver information using FastF1's built-in SessionR
 and DriverResult functionality.
 """
 
+from typing import Dict, Optional
+
 import fastf1 as ff1
 import pandas as pd
-from typing import Dict, Optional
 import streamlit as st
 
 

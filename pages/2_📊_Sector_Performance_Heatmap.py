@@ -5,13 +5,14 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+
+from utils.driver_data import get_driver_full_name
 from utils.styling import (
     apply_f1_styling,
-    get_f1_plotly_layout,
-    get_f1_heatmap_colorscale,
     create_f1_metric_card,
+    get_f1_heatmap_colorscale,
+    get_f1_plotly_layout,
 )
-from utils.driver_data import get_driver_full_name
 
 st.set_page_config(
     page_title="F1 Analytics - Sector Performance Heatmap",
