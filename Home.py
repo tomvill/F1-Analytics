@@ -15,13 +15,13 @@ st.markdown("Select a visualization from the sidebar to get started.")
 st.markdown("""
 ## About this Project
 
-This interactive dashboard visualizes Formula 1 race data using the FastF1 package.
+This interactive dashboard visualizes Formula 1 race data using the FastF1 API.
 Navigate through different visualizations in the sidebar to analyze:
 
 - **Driver Telemetry** - Compare speed, RPM, throttle usage and more
 - **Sector Performance** - Analyze sector times across drivers
 - **Race Strategy** - Visualize pit stops and race progression
-- **Speed Insights** - Examine top speeds and overtaking zones
+- **Postion and Overtake Insights** - Examine driver positions and overtakes
 - **Weather Impact** - See how weather affects lap times
 - **Track Dynamics** - View track-specific data and racing lines
 """)
@@ -65,6 +65,21 @@ with st.expander("Technical Details", expanded=False):
             st.info("Cache status: Directory exists but is empty")
     except Exception:
         st.info("Cache status: Not yet created")
+
+st.markdown("""
+    ### Authors
+    
+    This project was developed as part of the **INF8808 Data Visualization** course at Polytechnique Montréal.
+    
+    Team members:
+    
+    - **Thomas Villeneuve** - 2150864
+    - **Jonathan Roy-Ascanio** - 2152552
+    - **Christophe Lapointe** - 2151911
+    - **Abdelnour Sikouky** - 2158244
+    - **Jordan Caraballo Bonin** - 202254
+    
+    """)
 
 st.sidebar.title("🏎️ F1 Race Visualizations")
 st.sidebar.markdown("Explore race insights through 6 interactive visualizations.")
